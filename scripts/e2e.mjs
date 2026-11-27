@@ -6,7 +6,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 const base = process.env.BASE_URL || "https://q-plat.vercel.app",
   checks = [],
-  minSnapshots = process.env.PARTIAL_CATALOG === "1" ? 1 : 3;
+  minSnapshots = 3;
 const pass = (name, scalars = {}) => {
   checks.push({ name, ...scalars });
   console.log("PASS", name, JSON.stringify(scalars));
@@ -128,6 +128,7 @@ try {
     await page.locator("#refreshHistory").click();
   }
   assert.ok((await openButton.count()) > 0, "Job did not survive disconnect.");
+  const originalRun = await openButton.first().getAttribute("data-open-run");
   await openButton.first().click();
   await page.waitForFunction(
     () => document.querySelector("#runLabel").textContent.startsWith("Run "),
@@ -154,6 +155,30 @@ try {
     { timeout: 30000 },
   );
   pass("03 linked price/cross-section/detail controls", { assets: rankRows });
+  await page.locator("#frame").selectOption("5");
+  await page.waitForFunction(
+    () => document.querySelectorAll("#seriesTable tbody tr").length === 5,
+  );
+  await page.locator("#frame").selectOption("1");
+  await page.waitForFunction(
+    () => document.querySelectorAll("#seriesTable tbody tr").length === 25,
+  );
+  await page.locator("#heatChart").click({ position: { x: 180, y: 70 } });
+  await page.waitForFunction(() =>
+    document.querySelector("#selectedDate").textContent.includes("h=4"),
+  );
+  const contextOption = await page
+    .locator("#context option")
+    .evaluateAll(
+      (os) =>
+        os.find((o) => o.value.startsWith("ecb-") && o.value.endsWith("|USD"))
+          ?.value,
+    );
+  await page.locator("#context").selectOption(contextOption);
+  await page.waitForFunction(() =>
+    document.querySelector("#contextNote").textContent.includes("Coverage"),
+  );
+  pass("03 aggregation, horizon heatmap and availability-aware context");
   await page
     .locator("summary")
     .filter({ hasText: "Saved edges & version diff" })
@@ -161,7 +186,7 @@ try {
   await page.locator("#savedEdge").selectOption(edgeName);
   await page.locator("#savedVersion").waitFor({ state: "visible" });
   await page.waitForFunction(
-    () => document.querySelector("#savedVersion").options.length > 0,
+    () => Number(document.querySelector("#savedVersion").value) > 0,
   );
   await page.locator("#loadEdge").click();
   await page.waitForFunction(
@@ -178,7 +203,11 @@ try {
     { timeout: 30000 },
   );
   await page.locator("#feeBps").fill("20");
+  const secondAccepted = page.waitForResponse(
+    (r) => r.url().includes("op=run") && r.request().method() === "POST",
+  );
   await page.locator("#run").click();
+  const secondJob = (await (await secondAccepted).json()).job;
   await page.waitForFunction(
     () => document.querySelector("#jobStatus").textContent.includes("accepted"),
     {},
@@ -191,6 +220,12 @@ try {
     { timeout: 120000 },
   );
   pass("06 changed edge/cost account run completed");
+  await page.waitForFunction(
+    (id) =>
+      document.querySelector("#runLabel").textContent.includes(id.slice(0, 8)),
+    secondJob,
+    { timeout: 60000 },
+  );
   await page.locator('[data-view="history"]').click();
   await page.locator("#refreshHistory").click();
   await page.waitForFunction(
@@ -209,6 +244,121 @@ try {
     { timeout: 30000 },
   );
   pass("08 A/B report and configuration diff");
+  const compare = await (
+    await context.request.get(
+      base + "/api?op=compare&a=" + originalRun + "&b=" + secondJob,
+    )
+  ).json();
+  assert.ok(compare.firstDifferentDate);
+  assert.ok(compare.codeDiff.length);
+  assert.ok(compare.configDiff.some((x) => x.key === "feeBps"));
+  const submitAndWait = async () => {
+    const accepted = page.waitForResponse(
+      (r) => r.url().includes("op=run") && r.request().method() === "POST",
+    );
+    await page.locator("#run").click();
+    const response = await accepted;
+    assert.equal(response.status(), 202);
+    const id = (await response.json()).job;
+    await page.waitForFunction(
+      (id) =>
+        document
+          .querySelector("#runLabel")
+          .textContent.includes(id.slice(0, 8)),
+      id,
+      { timeout: 300000 },
+    );
+    return (
+      await context.request.get(base + "/api?op=report&run=" + id)
+    ).json();
+  };
+  await page.locator('[data-rerun="' + originalRun + '"]').click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector("#notice")
+      .textContent.includes("Exact rerun accepted"),
+  );
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#jobStatus").textContent.includes("completed"),
+    {},
+    { timeout: 120000 },
+  );
+  await page.waitForTimeout(1200);
+  const rerunId = (await page.locator("#jobStatus").innerText()).split(" ")[1];
+  const original = await (
+    await context.request.get(base + "/api?op=report&run=" + originalRun)
+  ).json();
+  const rerun = await (
+    await context.request.get(base + "/api?op=report&run=" + rerunId)
+  ).json();
+  assert.equal(original.runHash, rerun.runHash);
+  assert.deepEqual(original.metrics, rerun.metrics);
+  pass("08 exact saved snapshot rerun", { runHash: original.runHash });
+  await page.locator("#universe").fill("AA,AXP,BA,BAC,CAT");
+  const subset = await submitAndWait();
+  assert.equal(subset.universe.length, 5);
+  await page.waitForFunction(
+    () => document.querySelectorAll("#crossTable tbody tr").length === 5,
+  );
+  pass("03 universe changes computed cross-section", { assets: 5 });
+  const synth = await page
+    .locator("#dataset option")
+    .evaluateAll(
+      (os) => os.find((o) => o.value.startsWith("synthetic-")).value,
+    );
+  await page.locator("#dataset").selectOption(synth);
+  await page.waitForFunction(() =>
+    document.querySelector("#modeNote").textContent.includes("Next-period"),
+  );
+  await page.locator("#universe").fill("");
+  await page
+    .locator("#code")
+    .fill("mom = returns(close, 12)\nscore = rank(mom)");
+  await page.locator("#robustness").check();
+  const long = await submitAndWait();
+  assert.equal(long.meta.reality, "Synthetic");
+  assert.equal(long.counts.sessions, 1200);
+  assert.equal(long.robustness.trials.length, 5);
+  assert.equal(long.robustness.folds.length, 3);
+  assert.equal(long.robustness.trials[1].config.feeBps, 2 * long.config.feeBps);
+  assert.equal(long.robustness.trials[2].config.delay, long.config.delay + 1);
+  assert.ok(
+    long.robustness.trials[3].universe.length <
+      long.robustness.trials[0].universe.length,
+  );
+  assert.ok(
+    long.robustness.folds.every(
+      (f) => f.trainEnd + f.purge < f.testStart && f.trials.length === 2,
+    ),
+  );
+  await page
+    .locator("#robustReport summary")
+    .filter({ hasText: "Fold 1" })
+    .click();
+  pass(
+    "07 long-panel purged walk-forward, all stress trials and null control",
+    { run: long._id, sessions: long.counts.sessions, folds: 3, trials: 5 },
+  );
+  const ecb = await page
+    .locator("#dataset option")
+    .evaluateAll((os) => os.find((o) => o.value.startsWith("ecb-")).value);
+  await page.locator("#dataset").selectOption(ecb);
+  await page.waitForFunction(() =>
+    document.querySelector("#modeNote").textContent.includes("Research-only"),
+  );
+  await page
+    .locator("#code")
+    .fill("change = returns(close, 12)\nscore = -rank(change)");
+  await page.locator("#robustness").uncheck();
+  const fx = await submitAndWait();
+  assert.equal(fx.metrics, null);
+  assert.equal(fx.counts.ledger, 0);
+  assert.ok(fx.diagnostic.sessions > 3000);
+  pass("01 ECB reference research without fabricated execution", {
+    run: fx._id,
+    sessions: fx.counts.sessions,
+  });
   const storage = await page.evaluate(async () => ({
     local: localStorage.length,
     session: sessionStorage.length,
@@ -227,8 +377,41 @@ try {
   const other = await browser.newContext({ serviceWorkers: "block" }),
     outsider = await other.request.get(base + "/api?op=runs");
   assert.equal(outsider.status(), 401);
+  const otherPage = await other.newPage();
+  await otherPage.goto(base);
+  await otherPage.waitForFunction(
+    () => document.documentElement.dataset.ready === "true",
+  );
+  await otherPage.locator("#workspaceButton").click();
+  await otherPage.locator("#workspaceName").fill("qa_other_" + Date.now());
+  await otherPage
+    .locator("#workspacePassword")
+    .fill(randomBytes(24).toString("base64url"));
+  await otherPage.locator("#createWorkspace").click();
+  await otherPage.locator("#workspaceDialog").waitFor({ state: "hidden" });
+  assert.equal(
+    (
+      await other.request.get(base + "/api?op=report&run=" + originalRun)
+    ).status(),
+    404,
+  );
+  assert.equal(
+    (
+      await (
+        await other.request.get(base + "/api?op=edges&id=" + edgeName)
+      ).json()
+    ).versions.length,
+    0,
+  );
+  const own = await (await other.request.get(base + "/api?op=runs")).json();
+  assert.equal(own.runs.length, 0);
+  await otherPage.locator("#code").fill("score = rank(close)");
+  await otherPage.locator("#save").click();
+  await otherPage.waitForFunction(() =>
+    document.querySelector("#editorStatus").textContent.startsWith("Saved"),
+  );
   await other.close();
-  pass("10 unauthenticated private runs rejected");
+  pass("10 anonymous rejection and two-workspace isolation");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('[data-view="research"]').click();
   assert.ok(await page.locator("#code").isVisible());

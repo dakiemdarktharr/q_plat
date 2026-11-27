@@ -1195,6 +1195,15 @@ Save or load a version to compare with the editor.</pre>
             </div>
             <div class="panel">
               <div class="panel-head"><h2>Performance & assumptions</h2></div>
+              <details class="panel-body">
+                <summary>Chart values · accessible table</summary>
+                <p class="note">
+                  Sampled chart timestamps. Click a row for original source
+                  fields and ledger. Returns are fractions; NAV/costs use
+                  dataset currency. Quantile paths are gross diagnostics.
+                </p>
+                <div id="seriesTable" class="table-wrap"></div>
+              </details>
               <div class="panel-body" id="performance">
                 <div class="empty">Account metrics appear after a run.</div>
               </div>
@@ -1945,6 +1954,7 @@ Save or load a version to compare with the editor.</pre>
         if (state.edge) $("savedEdge").value = state.edge.edge;
       }
       async function loadVersions() {
+        $("loadEdge").disabled = true;
         const r = await api("edges", { id: $("savedEdge").value });
         state.edgeVersions = r.versions;
         $("savedVersion").innerHTML = r.versions
@@ -1960,6 +1970,7 @@ Save or load a version to compare with the editor.</pre>
           )
           .join("");
         showDiff();
+        $("loadEdge").disabled = false;
       }
       function showDiff() {
         const v = state.edgeVersions.find(
@@ -1978,7 +1989,7 @@ Save or load a version to compare with the editor.</pre>
         const v = state.edgeVersions.find(
           (v) => v.version === Number($("savedVersion").value),
         );
-        if (!v) return;
+        if (!v) throw new Error("Select a saved version first.");
         if ($("dataset").value !== v.datasetVersion) {
           $("dataset").value = v.datasetVersion;
           await chooseDataset();
@@ -2168,6 +2179,9 @@ Save or load a version to compare with the editor.</pre>
             "</p>"
           : "<p>FX reference rates: no simulated account.</p>";
         $("performance").innerHTML +=
+          '<p class="note">Holdout first opened: ' +
+          esc(r.holdoutOpenedAt || "This report opens the holdout") +
+          "</p>" +
           "<details><summary>Execution & diagnostic assumptions</summary>" +
           jsonView(r.assumptions) +
           (r.terminal
@@ -2636,6 +2650,47 @@ Save or load a version to compare with the editor.</pre>
         );
         scatter();
         heatmap();
+        const tablePoints = new Map(points.map((p) => [p.date, p]));
+        table(
+          "seriesTable",
+          timeline.map((t) => ({
+            ...t,
+            ...tablePoints.get(t.date),
+            feature: tablePoints.get(t.date)?.variables?.[$("feature").value],
+            q1: t.quantileEquity?.[0],
+            q2: t.quantileEquity?.[1],
+            q3: t.quantileEquity?.[2],
+            q4: t.quantileEquity?.[3],
+            q5: t.quantileEquity?.[4],
+            ic1: t.icByHorizon?.[1],
+            ic2: t.icByHorizon?.[2],
+            ic4: t.icByHorizon?.[4],
+            ic8: t.icByHorizon?.[8],
+          })),
+          cols(
+            "date",
+            "feature",
+            "score",
+            "rank",
+            "targetWeight",
+            "actualWeight",
+            "nav",
+            "benchmark",
+            "drawdown",
+            "ic",
+            "rollingIC",
+            "ic1",
+            "ic2",
+            "ic4",
+            "ic8",
+            "q1",
+            "q2",
+            "q3",
+            "q4",
+            "q5",
+          ),
+          (r) => selectDate(r.date),
+        );
       }
       let brushStart = null,
         zoomTimer = null;

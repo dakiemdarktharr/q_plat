@@ -51,6 +51,18 @@ async function ownedRun(database, id, workspace) {
   return r;
 }
 const clean = (obj) => (obj ? JSON.parse(JSON.stringify(obj)) : obj);
+async function enqueue(database, job) {
+  if (job.type !== "research")
+    return database.collection("jobs").insertOne(job);
+  for (let slot = 0; slot < 2; slot++) {
+    try {
+      return await database.collection("jobs").insertOne({ ...job, slot });
+    } catch (e) {
+      if (e.code !== 11000) throw e;
+    }
+  }
+  throw httpError("Two jobs are already active.", 429);
+}
 async function handle(request) {
   const url = new URL(request.url),
     q = url.searchParams,
@@ -98,16 +110,14 @@ async function handle(request) {
       if (!["provider-error", "cancel"].includes(b.probe))
         throw httpError("Unknown verification probe.");
       const id = randomUUID();
-      await database
-        .collection("jobs")
-        .insertOne({
-          _id: id,
-          workspace: "owner",
-          type: "probe",
-          probe: b.probe,
-          status: "queued",
-          createdAt: new Date().toISOString(),
-        });
+      await database.collection("jobs").insertOne({
+        _id: id,
+        workspace: "owner",
+        type: "probe",
+        probe: b.probe,
+        status: "queued",
+        createdAt: new Date().toISOString(),
+      });
       const workflow = await start(researchWorkflow, [id]);
       await database
         .collection("jobs")
@@ -423,7 +433,7 @@ async function handle(request) {
             "Saved edge version does not match code. Save a new version first.",
           );
       }
-      await database.collection("jobs").insertOne(job);
+      await enqueue(database, job);
       try {
         const workflow = await start(researchWorkflow, [id]);
         await database
@@ -479,7 +489,7 @@ async function handle(request) {
       if (!["failed", "cancelled"].includes(job.status))
         throw httpError("Only failed/cancelled jobs can be retried.");
       const id = randomUUID();
-      await database.collection("jobs").insertOne({
+      await enqueue(database, {
         ...job,
         _id: id,
         retryOf: job._id,
