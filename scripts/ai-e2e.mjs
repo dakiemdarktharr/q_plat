@@ -255,6 +255,49 @@ try {
   assert.ok(await page.locator("#featureChart").isVisible());
   await page.locator("#chartLayers > summary").click();
   assert.ok(await page.locator("#featureChart").isHidden());
+  const originalAsset = await page.locator("#asset").inputValue();
+  const otherAsset = await page
+    .locator("#asset option")
+    .evaluateAll(
+      (options, original) => options.find((o) => o.value !== original).value,
+      originalAsset,
+    );
+  // Delay genuine cloud responses in RAM; never replace their data with a mock.
+  await page.route("**/api?op=runWindow**", async (route) => {
+    const response = await route.fetch();
+    if (new URL(route.request().url()).searchParams.get("asset") === otherAsset)
+      await new Promise((r) => setTimeout(r, 700));
+    await route.fulfill({ response });
+  });
+  await page.locator("#asset").selectOption(otherAsset);
+  await page.waitForFunction(
+    (asset) =>
+      document
+        .querySelector("#detail h3")
+        ?.textContent.startsWith(asset + " ·"),
+    otherAsset,
+  );
+  await page.locator("#asset").selectOption(originalAsset);
+  await page.waitForFunction(
+    (asset) =>
+      document
+        .querySelector("#detail h3")
+        ?.textContent.startsWith(asset + " ·"),
+    originalAsset,
+  );
+  await page.locator("#asset").selectOption(otherAsset);
+  await page.locator("#asset").selectOption(originalAsset);
+  await new Promise((r) => setTimeout(r, 1200));
+  await page.waitForFunction(
+    (asset) =>
+      state.window.asset === asset &&
+      state.runWindow.points.every((p) => p.asset === asset) &&
+      document
+        .querySelector("#detail h3")
+        ?.textContent.startsWith(asset + " ·"),
+    originalAsset,
+  );
+  await page.unroute("**/api?op=runWindow**");
   pass(
     "26 AI results appear on web; tabs, keyboard focus and chart layers work",
   );

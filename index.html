@@ -3972,8 +3972,13 @@ Compare against mean reversion.</pre>
         $(id).onclick = () => action($(id), fn);
       $("dataset").onchange = () =>
         action($("applyWindow"), () => chooseDataset());
-      for (const id of ["asset", "frame", "context", "field"])
+      for (const id of ["frame", "context", "field"])
         $(id).onchange = () => action($("applyWindow"), loadWindow);
+      $("asset").onchange = () =>
+        action($("applyWindow"), async () => {
+          await loadWindow();
+          await detail();
+        });
       $("transform").onchange = drawAll;
       $("feature").onchange = drawAll;
       $("labels").onchange = () => {
