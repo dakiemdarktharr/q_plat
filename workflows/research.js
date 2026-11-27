@@ -2,7 +2,7 @@ import {executeJob} from '../lib/jobs.mjs';
 import {db} from '../lib/db.mjs';
 export async function researchWorkflow(jobId) {
   'use workflow';
-  try {return await execute(jobId);}catch {await recordFailure(jobId);return {status:'failed'};}
+  try {let result;do{result=await execute(jobId);}while(result.status==='continue');return result;}catch {await recordFailure(jobId);return {status:'failed'};}
 }
 async function execute(jobId) {
   'use step';

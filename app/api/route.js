@@ -9,6 +9,7 @@ import {parse,evaluate,makePanel} from '../../lib/dsl.mjs';
 import {validateConfig,ENGINE_VERSION} from '../../lib/engine.mjs';
 import {aggregateBars,distribution} from '../../lib/window.mjs';
 import {asOfJoin} from '../../lib/metrics.mjs';
+import {cloudChecks} from '../../lib/cloud-checks.mjs';
 export const dynamic='force-dynamic';
 export const maxDuration=60;
 const publicOps=new Set(['health','catalog','window']);
@@ -27,6 +28,7 @@ async function handle(request){
       return json({app:'q_plat',engine:ENGINE_VERSION,database,commit:process.env.VERCEL_GIT_COMMIT_SHA||null,deployment:process.env.VERCEL_DEPLOYMENT_ID||null,artifactHash:hash(await readFile(process.cwd()+'/index.html','utf8'))},database==='connected'?200:503,headers);
     }
     const database=await db();await schema(database);
+    if(op==='verify'&&request.method==='POST'){if(!owner(request))throw httpError('Owner access required.',403);await rateLimit(database,'owner:verify',2);return json(await cloudChecks());}
     if(op==='catalog'&&request.method==='GET'){
       const versions=await database.collection('dataset_versions').find({status:'ready'}).sort({createdAt:-1}).limit(30).toArray();return json({versions:clean(versions),sources:CATALOG,optional:OPTIONAL_SOURCES},200,headers);
     }
