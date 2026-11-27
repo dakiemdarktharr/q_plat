@@ -914,6 +914,12 @@
       .kpi[data-sign="negative"] strong {
         color: var(--red);
       }
+      .positive {
+        color: var(--green);
+      }
+      .negative {
+        color: var(--red);
+      }
       .chart-wrap {
         padding: 8px 14px 0;
       }
@@ -2364,7 +2370,16 @@ Compare against mean reversion.</pre>
                 columns
                   .map(
                     (c) =>
-                      "<td>" +
+                      '<td class="' +
+                      (/return|pnl|drawdown/i.test(c.key) &&
+                      typeof r[c.key] === "number"
+                        ? r[c.key] > 0
+                          ? "positive"
+                          : r[c.key] < 0
+                            ? "negative"
+                            : ""
+                        : "") +
+                      '">' +
                       esc(
                         c.format
                           ? c.format(r[c.key])
@@ -2387,12 +2402,51 @@ Compare against mean reversion.</pre>
             };
           });
       }
-      const cols = (...keys) => keys.map((key) => ({ key }));
+      const cols = (...keys) =>
+        keys.map((key) => ({
+          key,
+          label:
+            {
+              asset: "Asset",
+              date: "Date",
+              score: "Score",
+              rank: "Rank",
+              targetWeight: "Target %",
+              actualWeight: "Actual %",
+              quantity: "Units",
+              availableAt: "Available at",
+              openAt: "Open time",
+              nav: "NAV",
+              benchmark: "Benchmark",
+              drawdown: "Drawdown",
+              rollingIC: "Rolling IC",
+              feature: "Feature",
+            }[key] || key,
+          ...(["targetWeight", "actualWeight"].includes(key)
+            ? { format: pct }
+            : {}),
+        }));
       function kv(obj) {
         return (
           '<dl class="metric-list">' +
           Object.entries(obj)
-            .map(([k, v]) => "<dt>" + esc(k) + "</dt><dd>" + esc(v) + "</dd>")
+            .map(
+              ([k, v]) =>
+                "<dt>" +
+                esc(k) +
+                '</dt><dd class="' +
+                (/return|pnl|drawdown|cagr/i.test(k) &&
+                Number.isFinite(parseFloat(v))
+                  ? parseFloat(v) > 0
+                    ? "positive"
+                    : parseFloat(v) < 0
+                      ? "negative"
+                      : ""
+                  : "") +
+                '">' +
+                esc(v) +
+                "</dd>",
+            )
             .join("") +
           "</dl>"
         );
@@ -2669,6 +2723,7 @@ Compare against mean reversion.</pre>
       async function loadWindow() {
         if (!state.version) return;
         const request = ++windowRequest,
+          runId = state.run?._id,
           context = $("context").value.split("|"),
           params = {
             version: state.version._id,
@@ -2713,15 +2768,17 @@ Compare against mean reversion.</pre>
             ". " +
             w.context.units
           : "Select another dataset for an availability-aware comparison.";
-        if (state.run)
-          state.runWindow = await api("runWindow", {
-            run: state.run._id,
+        if (runId) {
+          const result = await api("runWindow", {
+            run: runId,
             asset: w.asset,
             from: $("from").value,
             to: $("to").value,
             frame: $("frame").value,
           });
-        else state.runWindow = null;
+          if (request !== windowRequest || state.run?._id !== runId) return;
+          state.runWindow = result;
+        } else state.runWindow = null;
         updateLocalLink();
         drawAll();
       }
@@ -2747,7 +2804,20 @@ Compare against mean reversion.</pre>
             },
           );
           $("workspacePassword").value = "";
+          const switched = state.workspace?.workspace !== s.workspace;
           setWorkspace(s);
+          if (switched) {
+            state.run = null;
+            state.runWindow = null;
+            state.edge = null;
+            state.cross = [];
+            state.date = null;
+            setRunning(false);
+            $("jobStatus").textContent = "";
+            clearToken();
+            clearReport();
+            await loadWindow();
+          }
           $("workspaceDialog").close();
           await loadEdges();
           notice(
@@ -2885,44 +2955,57 @@ Compare against mean reversion.</pre>
         showDiff();
       }
       async function run() {
-        await requireWorkspace();
-        const code = $("code").value,
-          saved =
-            state.edge?.code === code &&
-            state.edge?.datasetVersion === state.version._id;
-        const r = await api(
-          "run",
-          {},
-          {
-            code,
-            datasetVersion: state.version._id,
-            config: currentConfig(),
-            edge: saved ? state.edge.edge : null,
-            edgeVersion: saved ? state.edge.version : null,
-            universe: $("universe")
-              .value.split(",")
-              .map((x) => x.trim())
-              .filter(Boolean),
-            robustness: $("robustness").checked,
-          },
-        );
-        $("jobStatus").textContent = "Job " + r.job + " accepted";
-        notice(
-          "Research job accepted. Its status is saved in your workspace.",
-          "ok",
-        );
+        if (state.running) return;
         setRunning(true);
-        pollJob(r.job);
-      }
-      async function pollJob(id) {
         try {
+          await requireWorkspace();
+          if (!state.version)
+            throw new Error("Wait for the dataset to finish loading.");
+          const code = $("code").value,
+            saved =
+              state.edge?.code === code &&
+              state.edge?.datasetVersion === state.version._id;
+          const r = await api(
+            "run",
+            {},
+            {
+              code,
+              datasetVersion: state.version._id,
+              config: currentConfig(),
+              edge: saved ? state.edge.edge : null,
+              edgeVersion: saved ? state.edge.version : null,
+              universe: $("universe")
+                .value.split(",")
+                .map((x) => x.trim())
+                .filter(Boolean),
+              robustness: $("robustness").checked,
+            },
+          );
+          $("jobStatus").textContent = "Job " + r.job + " accepted";
+          notice(
+            "Research job accepted. Its status is saved in your workspace.",
+            "ok",
+          );
+          pollJob(r.job);
+        } catch (e) {
+          setRunning(false);
+          throw e;
+        }
+      }
+      async function pollJob(id, workspace = state.workspace?.workspace) {
+        try {
+          if (workspace !== state.workspace?.workspace) return;
           const j = (await api("jobs", { id })).jobs[0];
-          if (!j) return;
+          if (workspace !== state.workspace?.workspace) return;
+          if (!j) {
+            setRunning(false);
+            return;
+          }
           $("jobStatus").textContent = "Job " + id + " · " + j.status;
           if (j.status === "completed" && j.summary?.run) {
-            setRunning(false);
-            await openRun(j.summary.run);
             resultTab("overview");
+            await openRun(j.summary.run);
+            setRunning(false);
             notice("Experiment ready · inspect the signal and its costs", "ok");
             return;
           }
@@ -2931,7 +3014,7 @@ Compare against mean reversion.</pre>
             notice(j.error || "Job " + j.status, "error");
             return;
           }
-          setTimeout(() => pollJob(id), 2200);
+          setTimeout(() => pollJob(id, workspace), 2200);
         } catch (e) {
           setRunning(false);
           notice(
@@ -3123,10 +3206,17 @@ Compare against mean reversion.</pre>
       }
       async function selectDate(date, horizon = state.evalHorizon) {
         if (!state.run) return;
+        const runId = state.run._id;
         state.date = date;
         state.evalHorizon = horizon;
         $("selectedDate").textContent = date + " · h=" + horizon;
-        const r = await api("cross", { run: state.run._id, date, horizon });
+        const r = await api("cross", { run: runId, date, horizon });
+        if (
+          state.run?._id !== runId ||
+          state.date !== date ||
+          state.evalHorizon !== horizon
+        )
+          return;
         state.cross = r.points;
         renderCross();
         await detail();
@@ -3142,7 +3232,11 @@ Compare against mean reversion.</pre>
           "actualWeight",
         );
         if ($("labels").checked)
-          columns.push({ key: "forwardReturn", format: pct });
+          columns.push({
+            key: "forwardReturn",
+            label: "Forward %",
+            format: pct,
+          });
         table("crossTable", state.cross, columns, async (r) => {
           $("asset").value = r.asset;
           await loadWindow();
@@ -3155,11 +3249,18 @@ Compare against mean reversion.</pre>
       }
       async function detail() {
         if (!state.run || !state.date) return;
-        const d = await api("detail", {
+        const selection = {
           run: state.run._id,
           asset: $("asset").value,
           date: state.date,
-        });
+        };
+        const d = await api("detail", selection);
+        if (
+          state.run?._id !== selection.run ||
+          state.date !== selection.date ||
+          $("asset").value !== selection.asset
+        )
+          return;
         $("detail").innerHTML =
           '<div class="two" style="margin-top:0"><div><h3>' +
           esc($("asset").value) +
@@ -3395,8 +3496,8 @@ Compare against mean reversion.</pre>
           });
         } else
           keys.forEach((key, j) => {
-            ctx.strokeStyle = colors[j % 5];
-            ctx.fillStyle = colors[j % 5];
+            ctx.strokeStyle = options.colors?.[j] || colors[j % 5];
+            ctx.fillStyle = options.colors?.[j] || colors[j % 5];
             ctx.lineWidth = 1.6;
             if (options.bars) {
               data.forEach((d, i) => {
@@ -3517,7 +3618,10 @@ Compare against mean reversion.</pre>
           zero: true,
         });
         plot("navChart", timeline, ["nav", "benchmark"]);
-        plot("drawdownChart", timeline, ["drawdown"], { zero: true });
+        plot("drawdownChart", timeline, ["drawdown"], {
+          zero: true,
+          colors: ["#fb7185"],
+        });
         plot("icChart", timeline, ["ic", "rollingIC"]);
         plot(
           "quantileChart",
@@ -3726,7 +3830,7 @@ Compare against mean reversion.</pre>
               )
             : [];
         ctx.font = "10px Segoe UI";
-        ctx.fillStyle = "#667571";
+        ctx.fillStyle = "#a5a1b5";
         if (!points.length) {
           ctx.fillText(
             "Select a date with valid evaluation labels.",
@@ -3743,7 +3847,7 @@ Compare against mean reversion.</pre>
           ymax = Math.max(...ys),
           x = (v) => 45 + ((v - xmin) / (xmax - xmin || 1)) * (w - 75),
           y = (v) => 20 + ((ymax - v) / (ymax - ymin || 1)) * (h - 55);
-        ctx.strokeStyle = "#dce2da";
+        ctx.strokeStyle = "#2b2837";
         ctx.strokeRect(45, 20, w - 75, h - 55);
         points.forEach((p) => {
           ctx.fillStyle = p.asset === $("asset").value ? colors[1] : colors[0];
@@ -3751,7 +3855,7 @@ Compare against mean reversion.</pre>
           ctx.arc(x(p.score), y(p.forwardReturn), 4, 0, Math.PI * 2);
           ctx.fill();
         });
-        ctx.fillStyle = "#667571";
+        ctx.fillStyle = "#a5a1b5";
         ctx.fillText("score " + fmt(xmin) + " → " + fmt(xmax), 45, h - 9);
         ctx.fillText(pct(ymax), 2, 24);
         ctx.fillText(pct(ymin), 2, h - 35);
@@ -3783,22 +3887,22 @@ Compare against mean reversion.</pre>
           horizons = [1, 2, 4, 8],
           rowHeight = (h - 28) / 4;
         ctx.font = "10px Segoe UI";
-        ctx.fillStyle = "#667571";
+        ctx.fillStyle = "#a5a1b5";
         ctx.fillText(
           "IC time × horizon · click a cell to evaluate that horizon",
           10,
           12,
         );
         horizons.forEach((horizon, row) => {
-          ctx.fillStyle = "#667571";
+          ctx.fillStyle = "#a5a1b5";
           ctx.fillText("h=" + horizon, 4, 28 + row * rowHeight + rowHeight / 2);
           data.forEach((p, i) => {
             const value = p.icByHorizon?.[horizon];
             ctx.fillStyle = !Number.isFinite(value)
-              ? "#e7eae4"
+              ? "#272331"
               : value >= 0
-                ? `rgba(22,105,83,${0.15 + 0.85 * value})`
-                : `rgba(171,76,69,${0.15 - 0.85 * value})`;
+                ? `rgba(74,222,128,${0.15 + 0.85 * value})`
+                : `rgba(251,113,133,${0.15 - 0.85 * value})`;
             ctx.fillRect(
               40 + (i * (w - 50)) / data.length,
               22 + row * rowHeight,

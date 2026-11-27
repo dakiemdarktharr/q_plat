@@ -75,6 +75,15 @@ try {
     200,
   );
   pass("22 saving guest workspace preserves its completed research");
+  const originalCode = await page.locator("#code").inputValue();
+  await page.locator("#code").fill("score = next_weeks_open");
+  await page.locator("#run").click();
+  await page.waitForFunction(() =>
+    document.querySelector("#notice").textContent.includes("forbidden"),
+  );
+  assert.ok(await page.locator("#run").isEnabled());
+  assert.ok(await page.locator("#quickRun").isEnabled());
+  await page.locator("#code").fill(originalCode);
   await page.keyboard.press("Control+k");
   await page.locator("#commandSearch").fill("AI");
   await page.locator("#commandSearch").press("Enter");
