@@ -1,38 +1,279 @@
 // Direct Playwright harness: no traces, HAR, screenshots, snapshots or persisted browser profiles.
-import {chromium} from '@playwright/test';
-import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
-import {createHash,randomBytes} from 'node:crypto';
-import {pathToFileURL} from 'node:url';
-const base=process.env.BASE_URL||'https://q-plat.vercel.app',checks=[];
-const pass=(name,scalars={})=>{checks.push({name,...scalars});console.log('PASS',name,JSON.stringify(scalars));};
-const browser=await chromium.launch({headless:true});
-const context=await browser.newContext({viewport:{width:1440,height:1000},serviceWorkers:'block'});
-let page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
-try{
-  const health=await fetch(base+'/api?op=health').then(r=>r.json());assert.equal(health.database,'connected');
-  const [html,download]=await Promise.all([fetch(base).then(r=>r.text()),fetch(base+'/download').then(r=>r.text())]);
-  const digest=s=>createHash('sha256').update(s).digest('hex');assert.equal(digest(html),digest(download));assert.equal(digest(html),digest(await readFile('index.html','utf8')));pass('11 HTML production/download/source identical',{sha256:digest(html)});
-  await page.goto(base);await page.waitForFunction(()=>document.querySelector('#dataset').options.length>=3,{},{timeout:60000});
-  const count=await page.locator('#dataset option').count();assert.ok(count>=3);assert.match(await page.locator('#dbStatus').innerText(),/connected/);pass('01 catalog loaded from Atlas',{snapshots:count});
-  await page.locator('#workspaceButton').click();const name='qa_'+Date.now(),password=randomBytes(24).toString('base64url');await page.locator('#workspaceName').fill(name);await page.locator('#workspacePassword').fill(password);await page.locator('#createWorkspace').click();await page.locator('#workspaceDialog').waitFor({state:'hidden',timeout:30000});
-  const code='move = returns(close, 3)\nrange = (high - low) / close\nscore = rank(move) - 0.37 * rank(range)';
-  await page.locator('#edgeName').fill('QA custom range-adjusted momentum');await page.locator('#code').fill(code);await page.locator('#hypothesis').fill('Three-week momentum adjusted by current range predicts next-week open returns.');await page.locator('#validate').click();await page.waitForFunction(()=>document.querySelector('#editorStatus').textContent.startsWith('Valid'),{},{timeout:30000});
-  await page.locator('#save').click();await page.waitForFunction(()=>document.querySelector('#editorStatus').textContent.startsWith('Saved'),{},{timeout:30000});
-  const edgeName=await page.locator('#savedEdge').inputValue();assert.ok(edgeName);pass('02 custom code validates and saves');
-  await page.locator('#code').fill('score = next_weeks_open');await page.locator('#validate').click();await page.waitForFunction(()=>document.querySelector('#notice').textContent.includes('Line 1'),{},{timeout:30000});assert.match(await page.locator('#notice').innerText(),/forbidden/);await page.locator('#code').fill('score = lag(close, -1)');await page.locator('#validate').click();await page.waitForFunction(()=>document.querySelector('#notice').textContent.includes('Negative offsets'),{},{timeout:30000});pass('04 future field and negative lag rejected through editor');
-  await page.locator('#code').fill(code);await page.locator('#robustness').uncheck();await page.locator('#run').click();await page.waitForFunction(()=>document.querySelector('#jobStatus').textContent.includes('accepted'),{},{timeout:30000});
+import { chromium } from "@playwright/test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { createHash, randomBytes } from "node:crypto";
+import { pathToFileURL } from "node:url";
+const base = process.env.BASE_URL || "https://q-plat.vercel.app",
+  checks = [],
+  minSnapshots = process.env.PARTIAL_CATALOG === "1" ? 1 : 3;
+const pass = (name, scalars = {}) => {
+  checks.push({ name, ...scalars });
+  console.log("PASS", name, JSON.stringify(scalars));
+};
+const browser = await chromium.launch({ headless: true });
+const context = await browser.newContext({
+  viewport: { width: 1440, height: 1000 },
+  serviceWorkers: "block",
+});
+let page = await context.newPage();
+const errors = [];
+page.on("pageerror", (e) => errors.push(e.message));
+try {
+  const health = await fetch(base + "/api?op=health").then((r) => r.json());
+  assert.equal(health.database, "connected");
+  const [html, download] = await Promise.all([
+    fetch(base).then((r) => r.text()),
+    fetch(base + "/download").then((r) => r.text()),
+  ]);
+  const digest = (s) => createHash("sha256").update(s).digest("hex");
+  assert.equal(digest(html), digest(download));
+  assert.equal(digest(html), digest(await readFile("index.html", "utf8")));
+  pass("11 HTML production/download/source identical", {
+    sha256: digest(html),
+  });
+  await page.goto(base);
+  await page.waitForFunction(
+    () => document.documentElement.dataset.ready === "true",
+    {},
+    { timeout: 60000 },
+  );
+  await page.waitForFunction(
+    (n) => document.querySelector("#dataset").options.length >= n,
+    minSnapshots,
+    { timeout: 60000 },
+  );
+  const count = await page.locator("#dataset option").count();
+  assert.ok(count >= minSnapshots);
+  assert.match(await page.locator("#dbStatus").innerText(), /connected/);
+  pass("01 catalog loaded from Atlas", { snapshots: count });
+  await page.locator("#workspaceButton").click();
+  const name = "qa_" + Date.now(),
+    password = randomBytes(24).toString("base64url");
+  await page.locator("#workspaceName").fill(name);
+  await page.locator("#workspacePassword").fill(password);
+  await page.locator("#createWorkspace").click();
+  await page
+    .locator("#workspaceDialog")
+    .waitFor({ state: "hidden", timeout: 30000 });
+  const code =
+    "move = returns(close, 3)\nrange = (high - low) / close\nscore = rank(move) - 0.37 * rank(range)";
+  await page.locator("#edgeName").fill("QA custom range-adjusted momentum");
+  await page.locator("#code").fill(code);
+  await page.getByText("Hypothesis & research notes", { exact: true }).click();
+  await page
+    .locator("#hypothesis")
+    .fill(
+      "Three-week momentum adjusted by current range predicts next-week open returns.",
+    );
+  await page.locator("#validate").click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#editorStatus").textContent.startsWith("Valid"),
+    {},
+    { timeout: 30000 },
+  );
+  await page.locator("#save").click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#editorStatus").textContent.startsWith("Saved") &&
+      document.querySelector("#savedEdge").value,
+    {},
+    { timeout: 30000 },
+  );
+  const edgeName = await page.locator("#savedEdge").inputValue();
+  assert.ok(edgeName);
+  pass("02 custom code validates and saves");
+  await page.locator("#code").fill("score = next_weeks_open");
+  await page.locator("#validate").click();
+  await page.waitForFunction(
+    () => document.querySelector("#notice").textContent.includes("Line 1"),
+    {},
+    { timeout: 30000 },
+  );
+  assert.match(await page.locator("#notice").innerText(), /forbidden/);
+  await page.locator("#code").fill("score = lag(close, -1)");
+  await page.locator("#validate").click();
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector("#notice")
+        .textContent.includes("Negative offsets"),
+    {},
+    { timeout: 30000 },
+  );
+  pass("04 future field and negative lag rejected through editor");
+  await page.locator("#code").fill(code);
+  await page.locator("#robustness").uncheck();
+  await page.locator("#run").click();
+  await page.waitForFunction(
+    () => document.querySelector("#jobStatus").textContent.includes("accepted"),
+    {},
+    { timeout: 30000 },
+  );
   // Close immediately after the dispatcher accepts the job; same in-memory session on a fresh page.
-  await page.close();page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto(base+'/#history');await page.waitForFunction(()=>document.querySelector('#workspaceButton').textContent.includes('qa_'),{},{timeout:30000});
-  let openButton=page.locator('[data-open-run]');for(let i=0;i<40&&await openButton.count()===0;i++){await new Promise(r=>setTimeout(r,2500));await page.locator('#refreshHistory').click();}assert.ok(await openButton.count()>0,'Job did not survive disconnect.');await openButton.first().click();await page.waitForFunction(()=>document.querySelector('#runLabel').textContent.startsWith('Run '),{},{timeout:30000});pass('09 accepted cloud job survives tab close');
-  assert.match(await page.locator('#kpis').innerText(),/Mean rank IC/);await page.locator('#priceChart').click({position:{x:220,y:80}});await page.waitForFunction(()=>document.querySelector('#crossTable tbody tr'),{},{timeout:30000});const rankRows=await page.locator('#crossTable tbody tr').count();assert.equal(rankRows,30);await page.locator('#crossTable tbody tr').nth(1).click();await page.waitForFunction(()=>document.querySelector('#detail').textContent.includes('Intermediate variables'),{},{timeout:30000});pass('03 linked price/cross-section/detail controls',{assets:rankRows});
-  await page.locator('summary').filter({hasText:'Saved edges & version diff'}).click();await page.locator('#savedEdge').selectOption(edgeName);await page.locator('#savedVersion').waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('#savedVersion').options.length>0);await page.locator('#loadEdge').click();await page.waitForFunction(expected=>document.querySelector('#code').value===expected,code);pass('02 saved edge reload preserves exact code');
-  await page.locator('#code').fill(code.replace('0.37','0.52'));await page.locator('#fork').click();await page.waitForFunction(()=>document.querySelector('#editorStatus').textContent.includes('version 1'),{},{timeout:30000});await page.locator('#feeBps').fill('20');await page.locator('#run').click();await page.waitForFunction(()=>document.querySelector('#jobStatus').textContent.includes('accepted'),{},{timeout:30000});await page.waitForFunction(()=>document.querySelector('#jobStatus').textContent.includes('completed'),{},{timeout:120000});pass('06 changed edge/cost account run completed');
-  await page.locator('[data-view="history"]').click();await page.locator('#refreshHistory').click();await page.waitForFunction(()=>document.querySelector('#compareB').options.length>=2,{},{timeout:30000});await page.locator('#compareB').selectOption({index:1});await page.locator('#compare').click();await page.waitForFunction(()=>document.querySelector('#comparison').textContent.includes('firstDifferentDate'),{},{timeout:30000});pass('08 A/B report and configuration diff');
-  const storage=await page.evaluate(async()=>({local:localStorage.length,session:sessionStorage.length,indexedDB:(await indexedDB.databases()).length,caches:(await caches.keys()).length,serviceWorkers:(await navigator.serviceWorker.getRegistrations()).length}));assert.deepEqual(storage,{local:0,session:0,indexedDB:0,caches:0,serviceWorkers:0});pass('10 browser storage remains empty',storage);
-  const other=await browser.newContext({serviceWorkers:'block'}),outsider=await other.request.get(base+'/api?op=runs');assert.equal(outsider.status(),401);await other.close();pass('10 unauthenticated private runs rejected');
-  await page.setViewportSize({width:390,height:844});await page.locator('[data-view="research"]').click();assert.ok(await page.locator('#code').isVisible());const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2);assert.equal(overflow,false);pass('11 small viewport controls and no horizontal overflow');
-  const local=await context.newPage();await local.goto(pathToFileURL(process.cwd()+'/index.html').href);await local.waitForFunction(()=>document.querySelector('#dataset').options.length>=3,{},{timeout:30000});assert.ok(await local.locator('#code').isVisible());assert.ok(await local.locator('#localBanner').isVisible());pass('11 file protocol public-data preview');await local.close();
-  assert.equal(errors.length,0,'Browser JavaScript errors');pass('12 production runtime and browser clean',{commit:health.commit,deployment:health.deployment});
-}finally{await browser.close();}
-console.log('E2E_CHECKS',checks.length);
+  await page.close();
+  page = await context.newPage();
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto(base + "/#history");
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#workspaceButton").textContent.includes("qa_"),
+    {},
+    { timeout: 30000 },
+  );
+  let openButton = page.locator("[data-open-run]");
+  for (let i = 0; i < 40 && (await openButton.count()) === 0; i++) {
+    await new Promise((r) => setTimeout(r, 2500));
+    await page.locator("#refreshHistory").click();
+  }
+  assert.ok((await openButton.count()) > 0, "Job did not survive disconnect.");
+  await openButton.first().click();
+  await page.waitForFunction(
+    () => document.querySelector("#runLabel").textContent.startsWith("Run "),
+    {},
+    { timeout: 30000 },
+  );
+  pass("09 accepted cloud job survives tab close");
+  assert.match(await page.locator("#kpis").innerText(), /Mean rank IC/);
+  await page.locator("#priceChart").click({ position: { x: 220, y: 80 } });
+  await page.waitForFunction(
+    () => document.querySelector("#crossTable tbody tr"),
+    {},
+    { timeout: 30000 },
+  );
+  const rankRows = await page.locator("#crossTable tbody tr").count();
+  assert.equal(rankRows, 30);
+  await page.locator("#crossTable tbody tr").nth(1).click();
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector("#detail")
+        .textContent.includes("Intermediate variables"),
+    {},
+    { timeout: 30000 },
+  );
+  pass("03 linked price/cross-section/detail controls", { assets: rankRows });
+  await page
+    .locator("summary")
+    .filter({ hasText: "Saved edges & version diff" })
+    .click();
+  await page.locator("#savedEdge").selectOption(edgeName);
+  await page.locator("#savedVersion").waitFor({ state: "visible" });
+  await page.waitForFunction(
+    () => document.querySelector("#savedVersion").options.length > 0,
+  );
+  await page.locator("#loadEdge").click();
+  await page.waitForFunction(
+    (expected) => document.querySelector("#code").value === expected,
+    code,
+  );
+  pass("02 saved edge reload preserves exact code");
+  await page.locator("#code").fill(code.replace("0.37", "0.52"));
+  await page.locator("#fork").click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#editorStatus").textContent.includes("version 1"),
+    {},
+    { timeout: 30000 },
+  );
+  await page.locator("#feeBps").fill("20");
+  await page.locator("#run").click();
+  await page.waitForFunction(
+    () => document.querySelector("#jobStatus").textContent.includes("accepted"),
+    {},
+    { timeout: 30000 },
+  );
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#jobStatus").textContent.includes("completed"),
+    {},
+    { timeout: 120000 },
+  );
+  pass("06 changed edge/cost account run completed");
+  await page.locator('[data-view="history"]').click();
+  await page.locator("#refreshHistory").click();
+  await page.waitForFunction(
+    () => document.querySelector("#compareB").options.length >= 2,
+    {},
+    { timeout: 30000 },
+  );
+  await page.locator("#compareB").selectOption({ index: 1 });
+  await page.locator("#compare").click();
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector("#comparison")
+        .textContent.includes("firstDifferentDate"),
+    {},
+    { timeout: 30000 },
+  );
+  pass("08 A/B report and configuration diff");
+  const storage = await page.evaluate(async () => ({
+    local: localStorage.length,
+    session: sessionStorage.length,
+    indexedDB: (await indexedDB.databases()).length,
+    caches: (await caches.keys()).length,
+    serviceWorkers: (await navigator.serviceWorker.getRegistrations()).length,
+  }));
+  assert.deepEqual(storage, {
+    local: 0,
+    session: 0,
+    indexedDB: 0,
+    caches: 0,
+    serviceWorkers: 0,
+  });
+  pass("10 browser storage remains empty", storage);
+  const other = await browser.newContext({ serviceWorkers: "block" }),
+    outsider = await other.request.get(base + "/api?op=runs");
+  assert.equal(outsider.status(), 401);
+  await other.close();
+  pass("10 unauthenticated private runs rejected");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('[data-view="research"]').click();
+  assert.ok(await page.locator("#code").isVisible());
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > innerWidth + 2,
+  );
+  assert.equal(overflow, false);
+  pass("11 small viewport controls and no horizontal overflow");
+  const local = await context.newPage();
+  await local.goto(pathToFileURL(process.cwd() + "/index.html").href);
+  await local.waitForFunction(
+    (n) => document.querySelector("#dataset").options.length >= n,
+    minSnapshots,
+    { timeout: 30000 },
+  );
+  assert.ok(await local.locator("#code").isVisible());
+  assert.ok(await local.locator("#localBanner").isVisible());
+  pass("11 file protocol public-data preview");
+  await local.close();
+  assert.equal(errors.length, 0, "Browser JavaScript errors");
+  pass("12 production runtime and browser clean", {
+    commit: health.commit,
+    deployment: health.deployment,
+  });
+} catch (error) {
+  console.log(
+    "UI_STATUS",
+    JSON.stringify({
+      notice: await page
+        .locator("#notice")
+        .textContent()
+        .catch(() => null),
+      editor: await page
+        .locator("#editorStatus")
+        .textContent()
+        .catch(() => null),
+      job: await page
+        .locator("#jobStatus")
+        .textContent()
+        .catch(() => null),
+      errors,
+    }),
+  );
+  throw error;
+} finally {
+  await browser.close();
+}
+console.log("E2E_CHECKS", checks.length);
