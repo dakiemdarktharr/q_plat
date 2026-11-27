@@ -1,23 +1,24 @@
 <!doctype html>
+
 <html lang="vi">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="color-scheme" content="light" />
-    <title>q_plat — Research your edge</title>
+    <meta content="width=device-width,initial-scale=1" name="viewport" />
+    <meta content="dark" name="color-scheme" />
+    <title>qtpatuti</title>
     <style>
       /* THEME — edit these tokens for future UI prompts. No dataset is embedded. */
       :root {
-        --bg: #f3f4ef;
-        --surface: #fff;
-        --ink: #1c2c2c;
-        --muted: #667571;
-        --line: #dce2da;
-        --accent: #166953;
-        --soft: #e7f0e9;
-        --orange: #c56c35;
-        --red: #ab4c45;
-        --nav: #192e2b;
+        --bg: #09090c;
+        --surface: #111116;
+        --ink: #f5f3ff;
+        --muted: #a5a1b5;
+        --line: #2b2837;
+        --accent: #a78bfa;
+        --soft: #211a33;
+        --orange: #f4d35e;
+        --red: #fb7185;
+        --nav: #0b0b10;
         --radius: 10px;
         --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
         --font: Inter, Segoe UI, Arial, sans-serif;
@@ -45,7 +46,7 @@
         outline-offset: 3px;
       }
       *:focus-visible {
-        outline: 3px solid #c97729;
+        outline: 3px solid #f4d35e;
       }
       a {
         color: var(--accent);
@@ -72,7 +73,7 @@
       }
       button.primary {
         background: var(--accent);
-        color: white;
+        color: var(--ink);
         border-color: var(--accent);
       }
       button:disabled {
@@ -83,11 +84,11 @@
       select,
       textarea {
         width: 100%;
-        border: 1px solid #bdcac1;
+        border: 1px solid #3b354a;
         border-radius: 5px;
         padding: 8px 10px;
         color: var(--ink);
-        background: white;
+        background: var(--surface);
         min-height: 38px;
       }
       label {
@@ -138,7 +139,7 @@
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         font-size: 12px;
-        background: #f5f7f2;
+        background: #17131f;
         padding: 14px;
         border-radius: 6px;
         margin: 10px 0;
@@ -155,8 +156,8 @@
         border-radius: 4px;
       }
       .tag.synthetic {
-        background: #fff0da;
-        color: #925519;
+        background: #302810;
+        color: #f4d35e;
       }
       .hide,
       [hidden] {
@@ -170,7 +171,7 @@
       }
       .sidebar {
         background: var(--nav);
-        color: #d7e4da;
+        color: #dfdbe8;
         padding: 28px 18px;
         position: sticky;
         top: 0;
@@ -180,19 +181,19 @@
       }
       .brand {
         font: 600 26px var(--mono);
-        color: white;
+        color: var(--ink);
         letter-spacing: -2px;
         margin: 0 10px 5px;
       }
       .brand b {
-        color: #aacdb8;
+        color: #f4d35e;
       }
       .sidebar small {
         font-size: 10px;
         letter-spacing: 1.5px;
         text-transform: uppercase;
         margin: 4px 10px 40px;
-        color: #a6bcb0;
+        color: #a5a1b5;
       }
       .nav {
         display: grid;
@@ -202,13 +203,13 @@
         background: transparent;
         border: 0;
         justify-content: flex-start;
-        color: #bccfc3;
+        color: #a5a1b5;
         font-size: 13px;
         min-height: 44px;
       }
       .nav button.active {
-        background: #304a42;
-        color: white;
+        background: #231a36;
+        color: var(--ink);
       }
       .nav em {
         font-style: normal;
@@ -220,7 +221,7 @@
         margin-top: auto;
         font-size: 11px;
         line-height: 1.8;
-        color: #9cb4a8;
+        color: #a5a1b5;
         padding: 12px 10px;
       }
       .status-dot {
@@ -228,11 +229,11 @@
         width: 7px;
         height: 7px;
         border-radius: 50%;
-        background: #b58b44;
+        background: #f4d35e;
         margin-right: 6px;
       }
       .status-dot.ok {
-        background: #90c6a0;
+        background: #a78bfa;
       }
       .main {
         min-width: 0;
@@ -265,7 +266,7 @@
         flex-wrap: wrap;
       }
       .filters {
-        background: white;
+        background: var(--surface);
         border: 1px solid var(--line);
         border-radius: var(--radius);
         padding: 16px;
@@ -302,8 +303,8 @@
       .editor {
         font: 12px/1.8 var(--mono);
         min-height: 195px;
-        background: #f8faf6;
-        border-color: #dce4d9;
+        background: #0b0b10;
+        border-color: #3b354a;
         tab-size: 2;
         margin-top: 12px;
         white-space: pre;
@@ -337,23 +338,23 @@
         padding: 5px 0;
       }
       .banner {
-        border: 1px solid #d9d6ba;
-        background: #fbf8e9;
-        color: #695c29;
+        border: 1px solid #675828;
+        background: #211c10;
+        color: #f4d35e;
         border-radius: 7px;
         padding: 11px 14px;
         font-size: 12px;
         margin-bottom: 16px;
       }
       .banner.error {
-        background: #fff0eb;
-        color: #983f31;
-        border-color: #e5bbae;
+        background: #2a131c;
+        color: #fda4af;
+        border-color: #673246;
       }
       .banner.ok {
         background: var(--soft);
         color: var(--accent);
-        border-color: #bad3c3;
+        border-color: #594474;
       }
       .kpis {
         display: grid;
@@ -363,7 +364,7 @@
       }
       .kpi {
         border: 1px solid var(--line);
-        background: white;
+        background: var(--surface);
         border-radius: 8px;
         padding: 14px;
       }
@@ -386,7 +387,7 @@
         background: var(--line);
       }
       .chart-wrap {
-        background: white;
+        background: var(--surface);
         padding: 10px 14px 4px;
         position: relative;
       }
@@ -451,7 +452,7 @@
       th {
         position: sticky;
         top: 0;
-        background: #f3f6f0;
+        background: #19151f;
         color: var(--muted);
         font-weight: 600;
         text-align: right;
@@ -459,7 +460,7 @@
       td,
       th {
         padding: 9px 12px;
-        border-bottom: 1px solid #e7ebe3;
+        border-bottom: 1px solid #272331;
         text-align: right;
       }
       td:first-child,
@@ -517,8 +518,8 @@
       .tooltip {
         position: fixed;
         pointer-events: none;
-        background: #182d28;
-        color: white;
+        background: #25202f;
+        color: var(--ink);
         padding: 9px 12px;
         border-radius: 6px;
         font: 11px/1.6 var(--mono);
@@ -526,7 +527,7 @@
         max-width: 310px;
       }
       .pill {
-        background: #f0f3ee;
+        background: #211b2d;
         border-radius: 20px;
         padding: 4px 9px;
         font: 10px var(--mono);
@@ -655,59 +656,658 @@
           height: 170px;
         }
       }
+
+      /* QTPATUTI WORKSPACE — compact navigation, persistent chart/editor, focused result tabs. */
+      :root {
+        --green: #4ade80;
+        --red: #fb7185;
+        --radius: 12px;
+      }
+      body {
+        font-size: 13px;
+      }
+      .shell {
+        grid-template-columns: 76px minmax(0, 1fr);
+      }
+      .sidebar {
+        padding: 24px 7px 12px;
+        border-right: 1px solid var(--line);
+        z-index: 5;
+      }
+      .sidebar > div:first-child:empty {
+        display: none;
+      }
+      .nav {
+        gap: 12px;
+      }
+      .nav button {
+        flex-direction: column;
+        gap: 2px;
+        font-size: 10px;
+        padding: 10px 3px;
+        border-radius: 10px;
+      }
+      .nav button > span:first-child {
+        font: 22px var(--mono);
+      }
+      .nav button.active {
+        background: var(--soft);
+        color: var(--accent);
+        box-shadow: inset 2px 0 var(--accent);
+      }
+      .sidebar-footer {
+        padding: 4px;
+        font-size: 9px;
+        text-align: center;
+        overflow-wrap: anywhere;
+      }
+      .sidebar-footer #dbStatus {
+        display: block;
+      }
+      .main {
+        padding: 0 24px 24px;
+      }
+      .topbar {
+        height: 76px;
+        margin: 0;
+        gap: 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .identity {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+      }
+      .brand {
+        margin: 0;
+        font: 700 24px var(--font);
+        letter-spacing: -1px;
+      }
+      .brand::before {
+        content: "◈";
+        color: var(--accent);
+        margin-right: 9px;
+      }
+      .slash {
+        color: #51485e;
+      }
+      h1 {
+        font-size: 15px;
+        letter-spacing: 0;
+        margin: 0;
+      }
+      .topbar .actions {
+        gap: 8px;
+      }
+      button,
+      .button {
+        border-radius: 8px;
+        font-size: 12px;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+      }
+      button.primary {
+        color: #110b1c;
+        font-weight: 700;
+        background: var(--accent);
+      }
+      button.primary:hover {
+        background: #c4b5fd;
+      }
+      button:active {
+        transform: translateY(1px);
+      }
+      .menu {
+        position: relative;
+        margin: 0;
+      }
+      .menu summary {
+        list-style: none;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 12px;
+      }
+      .menu-items {
+        position: absolute;
+        right: 0;
+        top: 44px;
+        width: 180px;
+        background: var(--surface);
+        padding: 8px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        z-index: 20;
+        display: grid;
+        gap: 6px;
+        box-shadow: 0 16px 40px #0008;
+      }
+      .filters {
+        background: none;
+        border: 0;
+        border-radius: 0;
+        padding: 17px 0;
+        margin: 0;
+        grid-template-columns: minmax(150px, 2fr) 0.7fr 1fr 1fr 0.85fr auto;
+        gap: 12px;
+      }
+      .filters label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.7px;
+      }
+      .filters input,
+      .filters select {
+        font-size: 12px;
+        letter-spacing: 0;
+      }
+      .research-grid {
+        grid-template-columns: minmax(0, 1fr) 350px;
+        gap: 18px;
+      }
+      .panel-head {
+        padding: 13px 16px;
+      }
+      .panel-body {
+        padding: 16px;
+      }
+      #editorPanel {
+        position: sticky;
+        top: 14px;
+      }
+      #editorPanel .panel-head {
+        background: #191320;
+      }
+      #editorPanel label {
+        font-size: 11px;
+      }
+      #editorPanel .editor {
+        min-height: 190px;
+        font-size: 12px;
+        padding: 14px;
+        border-left: 2px solid var(--accent);
+      }
+      #editorPanel #run {
+        margin-top: 12px;
+        min-height: 44px;
+      }
+      #editorPanel .toolbar-mini {
+        margin-top: 12px;
+      }
+      #editorPanel details {
+        border-top: 1px solid var(--line);
+        margin: 12px 0 0;
+        padding-top: 7px;
+      }
+      #editorPanel summary {
+        color: var(--ink);
+      }
+      #editorPanel #testSettings .pill {
+        color: var(--orange);
+        float: right;
+      }
+      .editor-actions button {
+        flex: 1;
+        font-size: 11px;
+        padding: 7px;
+        min-height: 32px;
+      }
+      #jobStatus:empty,
+      #editorStatus:empty {
+        display: none;
+      }
+      #jobStatus {
+        color: var(--orange);
+        font: 11px/1.6 var(--mono);
+        overflow-wrap: anywhere;
+      }
+      .start-card {
+        padding: 20px;
+        border: 1px solid #594477;
+        border-radius: 12px;
+        background: linear-gradient(115deg, #20172f, #101015);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .start-card .tag {
+        background: none;
+        padding: 0;
+        color: var(--orange);
+        font-size: 9px;
+      }
+      .start-card h2 {
+        font-size: 22px;
+        letter-spacing: -0.6px;
+        margin-top: 6px;
+      }
+      .start-card button {
+        flex-shrink: 0;
+      }
+      .kpis {
+        gap: 0;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .kpi {
+        border: 0;
+        border-right: 1px solid var(--line);
+        border-radius: 0;
+        padding: 14px 16px;
+      }
+      .kpi:last-child {
+        border: 0;
+      }
+      .kpi strong {
+        font-size: 24px;
+        margin: 5px 0 0;
+      }
+      .kpi .label {
+        font-size: 10px;
+      }
+      .kpi[data-sign="positive"] strong {
+        color: var(--green);
+      }
+      .kpi[data-sign="negative"] strong {
+        color: var(--red);
+      }
+      .chart-wrap {
+        padding: 8px 14px 0;
+      }
+      .tall canvas {
+        height: 290px;
+      }
+      .short canvas {
+        height: 95px;
+      }
+      .chart-label {
+        font-size: 10px;
+        letter-spacing: 0.3px;
+      }
+      #chartLayers {
+        margin: 0;
+        background: var(--surface);
+      }
+      #chartLayers > summary {
+        padding: 10px 18px;
+        color: var(--muted);
+      }
+      .chart-tools {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-top: 1px solid var(--line);
+      }
+      .chart-tools details {
+        margin: 0;
+        font-size: 11px;
+        max-width: 70%;
+      }
+      .chart-tools p {
+        max-width: 320px;
+        margin: 8px 0;
+      }
+      .chart-tools button {
+        min-height: 30px;
+        padding: 5px 10px;
+      }
+      .result-dock {
+        margin-top: 22px;
+      }
+      .result-tabs {
+        display: flex;
+        gap: 6px;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 10px;
+        overflow-x: auto;
+      }
+      .result-tabs button {
+        border-color: transparent;
+        background: none;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .result-tabs button[aria-selected="true"] {
+        color: var(--orange);
+        background: #292315;
+        border-color: #5d4b23;
+      }
+      [data-result-panel] > .two {
+        margin-top: 14px;
+      }
+      [data-result-panel] > .panel {
+        margin-top: 14px;
+      }
+      .assumptions {
+        padding: 0 16px;
+      }
+      .source-footer {
+        margin-top: 24px;
+        color: var(--muted);
+      }
+      .source-footer summary {
+        color: var(--muted);
+        font-size: 10px;
+      }
+      footer {
+        margin: 5px 0;
+      }
+      .banner {
+        margin: 12px 0 0;
+      }
+      dialog {
+        color: var(--ink);
+        background: var(--surface);
+        box-shadow: 0 30px 100px #000a;
+      }
+      dialog::backdrop {
+        background: #000b;
+        backdrop-filter: blur(5px);
+      }
+      .connection-grid {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr;
+        gap: 18px;
+        margin-top: 22px;
+      }
+      .endpoint {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+      }
+      .endpoint > span {
+        grid-column: 1/-1;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .endpoint code {
+        align-self: center;
+        overflow-wrap: anywhere;
+        color: var(--orange);
+        font-size: 12px;
+      }
+      .token-reveal {
+        border: 1px solid var(--orange);
+        border-radius: 10px;
+        padding: 14px;
+        margin-top: 20px;
+      }
+      .token-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      #commandDialog {
+        padding: 16px;
+        max-width: 520px;
+      }
+      #commandDialog .panel-head {
+        padding: 0 0 12px;
+        margin-bottom: 12px;
+      }
+      .command-list {
+        display: grid;
+        gap: 6px;
+        margin-top: 12px;
+      }
+      .command-list button {
+        justify-content: space-between;
+      }
+      .loading-frame {
+        opacity: 0.5;
+      }
+      #toggleFilters {
+        display: none;
+      }
+      @media (max-width: 560px) {
+        #toggleFilters {
+          display: inline-flex;
+          align-self: end;
+        }
+        .filters:not(.expanded) label:nth-child(n + 3),
+        .filters:not(.expanded) #applyWindow {
+          display: none;
+        }
+      }
+      @media (max-width: 1200px) {
+        .research-grid {
+          grid-template-columns: minmax(0, 1fr) 310px;
+        }
+        .main {
+          padding: 0 16px 24px;
+        }
+        .kpis {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .kpi:nth-child(2) {
+          border-right: 0;
+        }
+        .kpi:nth-child(-n + 2) {
+          border-bottom: 1px solid var(--line);
+        }
+      }
+      @media (max-width: 900px) {
+        .shell {
+          display: block;
+        }
+        .sidebar {
+          height: auto;
+          position: static;
+          padding: 7px 12px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .nav {
+          width: 100%;
+          justify-content: space-around;
+          gap: 4px;
+        }
+        .nav button {
+          flex-direction: row;
+          gap: 5px;
+          padding: 8px 10px;
+          min-height: 38px;
+        }
+        .nav button > span:first-child {
+          font-size: 17px;
+        }
+        .sidebar-footer {
+          display: none;
+        }
+        .main {
+          padding: 0 12px 20px;
+        }
+        .topbar {
+          height: 65px;
+        }
+        .identity {
+          gap: 10px;
+        }
+        .brand {
+          font-size: 21px;
+        }
+        .research-grid {
+          grid-template-columns: 1fr;
+        }
+        #editorPanel {
+          position: static;
+          grid-row: 1;
+        }
+        #editorPanel .editor {
+          min-height: 150px;
+        }
+        .filters {
+          grid-template-columns: 1fr 1fr 1fr;
+        }
+        .two,
+        .connection-grid {
+          grid-template-columns: 1fr;
+        }
+        .kpis {
+          grid-template-columns: repeat(4, 1fr);
+        }
+        .kpi:nth-child(-n + 2) {
+          border-bottom: 0;
+        }
+        .kpi:nth-child(2) {
+          border-right: 1px solid var(--line);
+        }
+      }
+      @media (max-width: 560px) {
+        .identity .slash,
+        .identity h1,
+        #commandButton {
+          display: none;
+        }
+        .topbar .actions {
+          gap: 5px;
+        }
+        #workspaceButton {
+          max-width: 135px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          display: block;
+        }
+        .filters {
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+        .filters label:first-child {
+          grid-column: 1/-1;
+        }
+        .filters button {
+          align-self: end;
+        }
+        .kpis {
+          grid-template-columns: 1fr 1fr;
+        }
+        .kpi:nth-child(-n + 2) {
+          border-bottom: 1px solid var(--line);
+        }
+        .kpi:nth-child(2) {
+          border-right: 0;
+        }
+        .start-card {
+          padding: 16px;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        .start-card h2 {
+          font-size: 20px;
+        }
+        .tall canvas {
+          height: 240px;
+        }
+        .nav button {
+          padding: 7px;
+          font-size: 10px;
+        }
+        .nav button > span:first-child {
+          font-size: 15px;
+        }
+        .chart-tools {
+          align-items: flex-start;
+        }
+        .endpoint {
+          grid-template-columns: 1fr;
+        }
+        .endpoint button {
+          justify-self: start;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          scroll-behavior: auto !important;
+          transition: none !important;
+        }
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
     </style>
   </head>
   <body>
     <div class="shell">
       <aside class="sidebar">
-        <div>
-          <div class="brand">q<b>_</b>plat</div>
-          <small>Quant research desk</small>
-        </div>
-        <nav class="nav" aria-label="Main navigation">
-          <button data-view="research" class="active">
-            <em>01</em> Edge Lab</button
-          ><button data-view="explorer"><em>02</em> Data Explorer</button
-          ><button data-view="catalog"><em>03</em> Data Catalog</button
-          ><button data-view="history"><em>04</em> Runs & Jobs</button>
+        <div></div>
+        <nav aria-label="Main navigation" class="nav">
+          <button class="active" data-view="research" title="Lab">
+            <span aria-hidden="true">◈</span><span>Lab</span></button
+          ><button data-view="explorer" title="Data">
+            <span aria-hidden="true">▤</span><span>Data</span></button
+          ><button data-view="catalog" title="Sources">
+            <span aria-hidden="true">◫</span><span>Sources</span></button
+          ><button data-view="history" title="Runs">
+            <span aria-hidden="true">↗</span><span>Runs</span>
+          </button>
+          <button data-view="connections" title="AI connections">
+            <span aria-hidden="true">✦</span><span>AI</span>
+          </button>
         </nav>
         <div class="sidebar-footer">
-          <span id="dbDot" class="status-dot"></span
-          ><span id="dbStatus">Checking connection</span><br />Data lives in the
-          cloud.<br />Research stays in your workspace.<br /><span
-            id="revision"
-          ></span>
+          <span class="status-dot" id="dbDot"></span
+          ><span id="dbStatus">Connecting</span
+          ><span hidden="" id="revision"></span>
         </div>
       </aside>
       <main class="main">
         <header class="topbar">
-          <div>
-            <div class="eyebrow">FORM A HYPOTHESIS. FOLLOW THE EVIDENCE.</div>
-            <h1 id="pageTitle">Research your edge.</h1>
-            <p>Explore a signal, test its limits, trace every decision.</p>
+          <div class="identity">
+            <div class="brand">qtpatuti</div>
+            <span class="slash">/</span>
+            <h1 id="pageTitle">Lab</h1>
           </div>
           <div class="actions">
-            <a
-              id="download"
-              class="button"
-              href="/download"
-              download="index.html"
-              >↓ index.html</a
-            ><button id="retryConnection">Reconnect</button
-            ><button id="workspaceButton">Open workspace</button
-            ><button id="logout" hidden>Sign out</button>
+            <button
+              aria-label="Open commands"
+              id="commandButton"
+              title="Commands · Ctrl K"
+            >
+              ⌘ K
+            </button>
+            <button id="workspaceButton">Workspace</button>
+            <details class="menu">
+              <summary aria-label="More actions">•••</summary>
+              <div class="menu-items">
+                <a
+                  class="button"
+                  download="index.html"
+                  href="/download"
+                  id="download"
+                  >↓ index.html</a
+                ><button id="retryConnection">Reconnect</button
+                ><button hidden="" id="logout">Sign out</button>
+              </div>
+            </details>
           </div>
         </header>
-        <div id="notice" class="banner" role="status" aria-live="polite">
+        <div aria-live="polite" class="banner" id="notice" role="status">
           Connecting to the research catalog…
         </div>
-        <div id="localBanner" class="banner" hidden>
+        <div class="banner" hidden="" id="localBanner">
           Local preview reads public series in memory. Private research runs on
           HTTPS. <a id="openProduction">Open this screen on production ↗</a>
         </div>
-        <section class="filters" aria-label="Shared data filters">
+        <section aria-label="Shared data filters" class="filters">
           <label
-            >Dataset / immutable snapshot<select id="dataset">
+            >Dataset<select id="dataset">
               <option value="">Waiting for catalog</option>
             </select></label
           >
@@ -718,26 +1318,156 @@
           ><label>From<input id="from" type="date" /></label
           ><label>To<input id="to" type="date" /></label>
           <label
-            >Chart aggregation<select id="frame">
+            >Timeframe<select id="frame">
               <option value="1">Native</option>
               <option value="5">5 sessions</option>
               <option value="20">20 sessions</option>
             </select></label
-          ><button id="applyWindow">Apply window</button>
+          ><button id="applyWindow">Apply</button
+          ><button id="toggleFilters" aria-expanded="false">
+            Date & timeframe
+          </button>
         </section>
-        <section id="view-research" data-page>
+        <section data-page="" id="view-research">
           <div class="research-grid">
-            <div class="panel">
+            <div class="stage">
+              <div class="start-card" id="startCard">
+                <div>
+                  <span class="tag">FIRST EXPERIMENT</span>
+                  <h2>What does your edge see?</h2>
+                </div>
+                <button class="primary" id="quickRun">Run this edge ↗</button>
+              </div>
+              <div class="kpis" id="kpis">
+                <div class="kpi">
+                  <span class="label">Mean rank IC</span><strong>—</strong>
+                </div>
+                <div class="kpi">
+                  <span class="label">Net return</span><strong>—</strong>
+                </div>
+                <div class="kpi">
+                  <span class="label">Maximum drawdown</span><strong>—</strong>
+                </div>
+                <div class="kpi">
+                  <span class="label">Signal coverage</span><strong>—</strong>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>
+                      <span id="chartAsset">Price &amp; signal</span>
+                      <span class="tag" id="reality">Dataset</span>
+                    </h2>
+                    <span
+                      class="note"
+                      id="runLabel"
+                      title="Selected research run and engine"
+                      >Public data · no research run selected</span
+                    >
+                  </div>
+                  <button id="resetZoom">Reset zoom</button>
+                </div>
+                <div class="chart-stack">
+                  <div class="chart-wrap tall">
+                    <div class="chart-label">
+                      <b>PRICE</b><span id="priceUnit"></span
+                      ><span>● buy   ▼ sell</span>
+                    </div>
+                    <canvas
+                      aria-label="Price and fill markers"
+                      id="priceChart"
+                      role="img"
+                    ></canvas>
+                  </div>
+                  <div class="chart-wrap short">
+                    <div class="chart-label">
+                      SCORE / RANK<span
+                        ><i class="swatch"></i>score
+                        <i class="swatch" style="background: var(--orange)"></i
+                        >rank</span
+                      >
+                    </div>
+                    <canvas
+                      aria-label="Score and rank"
+                      id="scoreChart"
+                      role="img"
+                    ></canvas>
+                  </div>
+                  <details id="chartLayers">
+                    <summary>Volume · feature · exposure</summary>
+                    <div class="chart-wrap short" id="volumeWrap">
+                      <div class="chart-label">
+                        VOLUME · shares / observed period
+                      </div>
+                      <canvas
+                        aria-label="Volume"
+                        id="volumeChart"
+                        role="img"
+                      ></canvas>
+                    </div>
+                    <div class="chart-wrap short">
+                      <div class="chart-label">
+                        <b>FEATURE</b
+                        ><select
+                          aria-label="Intermediate feature"
+                          id="feature"
+                          style="
+                            width: 150px;
+                            min-height: 25px;
+                            padding: 2px;
+                            font-size: 10px;
+                          "
+                        >
+                          <option>score</option>
+                        </select>
+                      </div>
+                      <canvas
+                        aria-label="Intermediate feature"
+                        id="featureChart"
+                        role="img"
+                      ></canvas>
+                    </div>
+                    <div class="chart-wrap short">
+                      <div class="chart-label">
+                        <b>EXPOSURE</b
+                        ><span
+                          >target · yellow / actual · purple, fractions of
+                          NAV</span
+                        >
+                      </div>
+                      <canvas
+                        aria-label="Target and actual weights"
+                        id="exposureChart"
+                        role="img"
+                      ></canvas>
+                    </div>
+                  </details>
+                </div>
+                <div class="chart-tools">
+                  <button id="inspectPoint">Inspect date →</button>
+                  <details>
+                    <summary>Chart controls</summary>
+                    <p>
+                      Wheel: zoom · drag: select range · click: select date.
+                      Aggregation preserves OHLC; metrics use all original
+                      observations.
+                    </p>
+                  </details>
+                </div>
+              </div>
+            </div>
+            <div class="panel" id="editorPanel">
               <div class="panel-head">
-                <h2>Your hypothesis</h2>
-                <span class="tag">Expression DSL v1</span>
+                <h2>Edge editor</h2>
+                <span class="tag">DSL</span>
               </div>
               <div class="panel-body">
                 <label
                   >Edge name<input
                     id="edgeName"
-                    value="Momentum with a risk filter"
                     maxlength="100"
+                    value="Momentum with a risk filter"
                 /></label>
                 <div class="toolbar-mini below">
                   <label class="wide" style="flex: 1"
@@ -748,44 +1478,50 @@
                     </select></label
                   >
                 </div>
-                <label for="code" class="below"
-                  >Code · final variable must be score</label
+                <label class="below" for="code">Code</label
                 ><textarea
+                  aria-describedby="codeHelp"
                   class="editor"
                   id="code"
                   spellcheck="false"
-                  aria-describedby="codeHelp"
                 >
 mom = close / lag(close, 4) - 1
 risk = ts_std(returns(close, 1), 4)
 score = rank(mom) - 0.25 * rank(risk)</textarea>
+                <button
+                  class="primary"
+                  id="run"
+                  style="width: 100%"
+                  title="Run edge · Ctrl Enter"
+                >
+                  Run edge ↗
+                </button>
+                <div class="note below" id="jobStatus" role="status"></div>
                 <div class="editor-actions">
                   <button id="validate">Validate</button
                   ><button id="save">Save version</button
                   ><button id="fork">Fork</button>
                 </div>
-                <div id="editorStatus" class="note" role="status">
-                  Write any expression using the supported fields and operators.
-                </div>
-                <pre id="preview" hidden></pre>
+                <div class="note" id="editorStatus" role="status"></div>
+                <pre hidden="" id="preview"></pre>
                 <details>
-                  <summary>Hypothesis & research notes</summary>
+                  <summary>Hypothesis &amp; research notes</summary>
                   <label
                     >Hypothesis<textarea
                       id="hypothesis"
-                      rows="2"
                       placeholder="What should predict what, and why?"
+                      rows="2"
                     ></textarea></label
                   ><label
                     >Notes<textarea
                       id="notes"
-                      rows="2"
                       placeholder="Record caveats and observations"
+                      rows="2"
                     ></textarea>
                   </label>
                 </details>
                 <details>
-                  <summary>Saved edges & version diff</summary>
+                  <summary>Saved edges &amp; version diff</summary>
                   <label
                     >Edge<select id="savedEdge">
                       <option value="">Select a saved edge</option>
@@ -794,13 +1530,13 @@ score = rank(mom) - 0.25 * rank(risk)</textarea>
                     >Version<select id="savedVersion">
                       <option value="">—</option>
                     </select></label
-                  ><button id="loadEdge" class="below">Load version</button>
+                  ><button class="below" id="loadEdge">Load version</button>
                   <pre id="versionDiff">
 Save or load a version to compare with the editor.</pre>
                 </details>
                 <details id="codeHelp">
-                  <summary>Fields, operators & missing values</summary>
-                  <div id="fieldHelp" class="note"></div>
+                  <summary>Fields, operators &amp; missing values</summary>
+                  <div class="note" id="fieldHelp"></div>
                   <p class="note">
                     + − * /, comparisons, and / or / not. Variables are assigned
                     once, one per line. <code>where(condition, a, b)</code>,
@@ -823,241 +1559,377 @@ Save or load a version to compare with the editor.</pre>
                     lookahead or arbitrary Python.
                   </p>
                 </details>
-                <div class="divider"></div>
-                <h3>Test configuration</h3>
-                <div class="form-grid" id="configForm">
-                  <label
-                    >Capital<input
-                      id="capital"
-                      type="number"
-                      value="100000"
-                      min="100" /></label
-                  ><label
-                    >Top K<input
-                      id="topK"
-                      type="number"
-                      value="5"
-                      min="1"
-                      max="64"
-                  /></label>
-                  <label
-                    >Fee / side · bps<input
-                      id="feeBps"
-                      type="number"
-                      value="10"
-                      min="0"
-                      max="500" /></label
-                  ><label
-                    >Slippage · bps<input
-                      id="slippageBps"
-                      type="number"
-                      value="5"
-                      min="0"
-                      max="500"
-                  /></label>
-                  <label
-                    >Rebalance · periods<input
-                      id="rebalance"
-                      type="number"
-                      value="1"
-                      min="1"
-                      max="52" /></label
-                  ><label
-                    >Label horizon · periods<input
-                      id="horizon"
-                      type="number"
-                      value="1"
-                      min="1"
-                      max="12"
-                  /></label>
-                  <details class="wide">
-                    <summary>Execution, risk & universe</summary>
-                    <div class="form-grid">
-                      <label
-                        >Max weight · fraction<input
-                          id="maxWeight"
-                          type="number"
-                          value="0.25"
-                          min="0.01"
-                          max="1"
-                          step="0.01" /></label
-                      ><label
-                        >Lot · units<input
-                          id="lot"
-                          type="number"
-                          value="1"
-                          min="0.000001"
-                          step="0.000001" /></label
-                      ><label
-                        >Max volume participation<input
-                          id="maxParticipation"
-                          type="number"
-                          value="0.01"
-                          step="0.01" /></label
-                      ><label
-                        >Extra delay · periods<input
-                          id="delay"
-                          type="number"
-                          value="0"
-                          min="0"
-                          max="5" /></label
-                      ><label
-                        >Max holding · periods<input
-                          id="maxHolding"
-                          type="number"
-                          value="52"
-                          min="1" /></label
-                      ><label
-                        >Risk-free · annual fraction<input
-                          id="riskFree"
-                          type="number"
-                          value="0"
-                          step="0.01" /></label
-                      ><label
-                        >Entry score ≥<input
-                          id="entry"
-                          type="number"
-                          value="-1000000000000" /></label
-                      ><label
-                        >Hold while score ≥<input
-                          id="exit"
-                          type="number"
-                          value="-1000000000000" /></label
-                      ><label
-                        >Random seed<input
-                          id="seed"
-                          type="number"
-                          value="41" /></label
-                      ><label class="wide"
-                        >Universe · comma-separated; empty = all<input
-                          id="universe"
-                          placeholder="e.g. AA, AXP, BA"
-                      /></label>
-                    </div>
-                  </details>
-                  <label class="checkbox wide"
-                    ><input id="robustness" type="checkbox" checked />
-                    Walk-forward + robustness controls</label
-                  >
-                </div>
-                <p id="modeNote" class="note below">
-                  Next-period open fills; sized at decision close. Full snapshot
-                  is used for metrics; chart window is for inspection.
-                </p>
-                <button id="run" class="primary" style="width: 100%">
-                  Run research →
-                </button>
-                <div id="jobStatus" class="note below" role="status"></div>
-              </div>
-            </div>
-            <div>
-              <div class="kpis" id="kpis">
-                <div class="kpi">
-                  <span class="label">Mean rank IC</span><strong>—</strong
-                  ><small>Run an edge to evaluate</small>
-                </div>
-                <div class="kpi">
-                  <span class="label">Net return</span><strong>—</strong
-                  ><small>After both-side costs</small>
-                </div>
-                <div class="kpi">
-                  <span class="label">Maximum drawdown</span><strong>—</strong
-                  ><small>Mark-to-market account</small>
-                </div>
-                <div class="kpi">
-                  <span class="label">Signal coverage</span><strong>—</strong
-                  ><small>Valid score / panel cells</small>
-                </div>
-              </div>
-              <div class="panel">
-                <div class="panel-head">
-                  <div>
-                    <h2>
-                      <span id="chartAsset">Price & signal</span>
-                      <span id="reality" class="tag">Dataset</span>
-                    </h2>
-                    <span class="note" id="runLabel"
-                      >Public data · no research run selected</span
+                <details id="testSettings">
+                  <summary>
+                    Test settings <span class="pill">Options</span>
+                  </summary>
+                  <div class="form-grid" id="configForm">
+                    <label
+                      >Capital<input
+                        id="capital"
+                        min="100"
+                        type="number"
+                        value="100000" /></label
+                    ><label
+                      >Top K<input
+                        id="topK"
+                        max="64"
+                        min="1"
+                        type="number"
+                        value="5"
+                    /></label>
+                    <label
+                      >Fee / side · bps<input
+                        id="feeBps"
+                        max="500"
+                        min="0"
+                        type="number"
+                        value="10" /></label
+                    ><label
+                      >Slippage · bps<input
+                        id="slippageBps"
+                        max="500"
+                        min="0"
+                        type="number"
+                        value="5"
+                    /></label>
+                    <label
+                      >Rebalance · periods<input
+                        id="rebalance"
+                        max="52"
+                        min="1"
+                        type="number"
+                        value="1" /></label
+                    ><label
+                      >Label horizon · periods<input
+                        id="horizon"
+                        max="12"
+                        min="1"
+                        type="number"
+                        value="1"
+                    /></label>
+                    <details class="wide">
+                      <summary>Execution, risk &amp; universe</summary>
+                      <div class="form-grid">
+                        <label
+                          >Max weight · fraction<input
+                            id="maxWeight"
+                            max="1"
+                            min="0.01"
+                            step="0.01"
+                            type="number"
+                            value="0.25" /></label
+                        ><label
+                          >Lot · units<input
+                            id="lot"
+                            min="0.000001"
+                            step="0.000001"
+                            type="number"
+                            value="1" /></label
+                        ><label
+                          >Max volume participation<input
+                            id="maxParticipation"
+                            step="0.01"
+                            type="number"
+                            value="0.01" /></label
+                        ><label
+                          >Extra delay · periods<input
+                            id="delay"
+                            max="5"
+                            min="0"
+                            type="number"
+                            value="0" /></label
+                        ><label
+                          >Max holding · periods<input
+                            id="maxHolding"
+                            min="1"
+                            type="number"
+                            value="52" /></label
+                        ><label
+                          >Risk-free · annual fraction<input
+                            id="riskFree"
+                            step="0.01"
+                            type="number"
+                            value="0" /></label
+                        ><label
+                          >Entry score ≥<input
+                            id="entry"
+                            type="number"
+                            value="-1000000000000" /></label
+                        ><label
+                          >Hold while score ≥<input
+                            id="exit"
+                            type="number"
+                            value="-1000000000000" /></label
+                        ><label
+                          >Random seed<input
+                            id="seed"
+                            type="number"
+                            value="41" /></label
+                        ><label class="wide"
+                          >Universe · comma-separated; empty = all<input
+                            id="universe"
+                            placeholder="e.g. AA, AXP, BA"
+                        /></label>
+                      </div>
+                    </details>
+                    <label class="checkbox wide"
+                      ><input id="robustness" type="checkbox" /> Walk-forward +
+                      robustness controls</label
                     >
                   </div>
-                  <button id="resetZoom">Reset zoom</button>
-                </div>
-                <div class="chart-stack">
-                  <div class="chart-wrap tall">
-                    <div class="chart-label">
-                      <b>PRICE</b><span id="priceUnit"></span
-                      ><span>● buy &nbsp; ▼ sell</span>
-                    </div>
-                    <canvas
-                      id="priceChart"
-                      aria-label="Price and fill markers"
-                      role="img"
-                    ></canvas>
-                  </div>
-                  <div class="chart-wrap short" id="volumeWrap">
-                    <div class="chart-label">
-                      VOLUME · shares / observed period
-                    </div>
-                    <canvas
-                      id="volumeChart"
-                      aria-label="Volume"
-                      role="img"
-                    ></canvas>
-                  </div>
-                  <div class="chart-wrap short">
-                    <div class="chart-label">
-                      <b>FEATURE</b
-                      ><select
-                        id="feature"
-                        aria-label="Intermediate feature"
-                        style="
-                          width: 150px;
-                          min-height: 25px;
-                          padding: 2px;
-                          font-size: 10px;
-                        "
-                      >
-                        <option>score</option>
-                      </select>
-                    </div>
-                    <canvas
-                      id="featureChart"
-                      aria-label="Intermediate feature"
-                      role="img"
-                    ></canvas>
-                  </div>
-                  <div class="chart-wrap short">
-                    <div class="chart-label">
-                      <b>SCORE / RANK</b
-                      ><span>raw score · green / percentile rank · orange</span>
-                    </div>
-                    <canvas
-                      id="scoreChart"
-                      aria-label="Score and rank"
-                      role="img"
-                    ></canvas>
-                  </div>
-                  <div class="chart-wrap short">
-                    <div class="chart-label">
-                      <b>EXPOSURE</b
+                  <p class="note below" id="modeNote">
+                    Next-period open fills; sized at decision close. Full
+                    snapshot is used for metrics; chart window is for
+                    inspection.
+                  </p>
+                </details>
+              </div>
+            </div>
+          </div>
+          <section class="result-dock">
+            <div
+              aria-label="Research results"
+              class="result-tabs"
+              role="tablist"
+            >
+              <button
+                aria-controls="result-overview"
+                aria-selected="true"
+                data-result="overview"
+                id="tab-overview"
+                role="tab"
+                tabindex="0"
+              >
+                Overview</button
+              ><button
+                aria-controls="result-signal"
+                aria-selected="false"
+                data-result="signal"
+                id="tab-signal"
+                role="tab"
+                tabindex="-1"
+              >
+                Signal</button
+              ><button
+                aria-controls="result-trace"
+                aria-selected="false"
+                data-result="trace"
+                id="tab-trace"
+                role="tab"
+                tabindex="-1"
+              >
+                Trace</button
+              ><button
+                aria-controls="result-robust"
+                aria-selected="false"
+                data-result="robust"
+                id="tab-robust"
+                role="tab"
+                tabindex="-1"
+              >
+                Robustness</button
+              ><button
+                aria-controls="result-context"
+                aria-selected="false"
+                data-result="context"
+                id="tab-context"
+                role="tab"
+                tabindex="-1"
+              >
+                Context
+              </button>
+            </div>
+            <div
+              aria-labelledby="tab-overview"
+              data-result-panel=""
+              id="result-overview"
+              role="tabpanel"
+            >
+              <div class="two">
+                <div class="panel">
+                  <div class="panel-head">
+                    <h2>Account NAV &amp; benchmark</h2>
+                    <div class="chart-legend">
+                      <span><i class="swatch"></i>NAV</span
                       ><span
-                        >target · orange / actual · green, fractions of
-                        NAV</span
+                        ><i class="swatch" style="background: var(--orange)"></i
+                        >equal-weight sample</span
                       >
                     </div>
+                  </div>
+                  <div class="chart-wrap">
                     <canvas
-                      id="exposureChart"
-                      aria-label="Target and actual weights"
+                      aria-label="Net account equity and benchmark"
+                      id="navChart"
+                      role="img"
+                    ></canvas>
+                  </div>
+                  <div class="chart-wrap short">
+                    <div class="chart-label">
+                      UNDERWATER · fraction below peak
+                    </div>
+                    <canvas
+                      aria-label="Drawdown"
+                      id="drawdownChart"
                       role="img"
                     ></canvas>
                   </div>
                 </div>
-                <div class="panel-body note">
-                  Wheel to zoom. Drag a range to brush. Click a date to inspect
-                  all assets. Crosshair is shared across panels. Aggregation
-                  preserves OHLC; metrics use original observations.
+                <div class="panel">
+                  <div class="panel-head">
+                    <h2>Performance &amp; assumptions</h2>
+                  </div>
+                  <details class="panel-body">
+                    <summary>Chart values · accessible table</summary>
+                    <p class="note">
+                      Sampled chart timestamps. Click a row for original source
+                      fields and ledger. Returns are fractions; NAV/costs use
+                      dataset currency. Quantile paths are gross diagnostics.
+                    </p>
+                    <div class="table-wrap" id="seriesTable"></div>
+                  </details>
+                  <div class="panel-body" id="performance">
+                    <div class="empty">Account metrics appear after a run.</div>
+                  </div>
                 </div>
               </div>
+            </div>
+            <div
+              aria-labelledby="tab-signal"
+              data-result-panel=""
+              hidden=""
+              id="result-signal"
+              role="tabpanel"
+            >
+              <div class="two">
+                <div class="panel">
+                  <div class="panel-head">
+                    <h2>
+                      Cross-section
+                      <span class="pill" id="selectedDate">Select a date</span>
+                    </h2>
+                    <label class="checkbox"
+                      ><input checked="" id="labels" type="checkbox" />
+                      Evaluation labels</label
+                    >
+                  </div>
+                  <div class="table-wrap" id="crossTable">
+                    <div class="empty">Click a date after running an edge.</div>
+                  </div>
+                </div>
+                <div class="panel">
+                  <div class="panel-head">
+                    <h2>Score → forward return</h2>
+                    <span class="note" id="scatterCount">0 pairs</span>
+                  </div>
+                  <div class="chart-wrap">
+                    <canvas
+                      aria-label="Score versus forward return scatter"
+                      id="scatterChart"
+                      role="img"
+                    ></canvas>
+                  </div>
+                  <details class="assumptions">
+                    <summary>Method</summary>
+                    <div class="panel-body note">
+                      Evaluation only. Click a point to inspect its asset and
+                      date. Labels are never available to the feature engine.
+                    </div>
+                  </details>
+                </div>
+              </div>
+              <div class="two">
+                <div class="panel">
+                  <div class="panel-head" title="per cross-section">
+                    <h2>Rank IC through time</h2>
+                  </div>
+                  <div class="chart-wrap">
+                    <canvas
+                      aria-label="Rank information coefficient and rolling mean"
+                      id="icChart"
+                      role="img"
+                    ></canvas>
+                  </div>
+                  <div class="panel-body" id="icSummary"></div>
+                  <div class="chart-wrap short">
+                    <canvas
+                      aria-label="IC heatmap by time"
+                      id="heatChart"
+                      role="img"
+                    ></canvas>
+                  </div>
+                </div>
+                <div class="panel">
+                  <div class="panel-head" title="diagnostic · gross">
+                    <h2>Quantile paths</h2>
+                  </div>
+                  <div class="chart-wrap">
+                    <canvas
+                      aria-label="Compounded quantile forward returns"
+                      id="quantileChart"
+                      role="img"
+                    ></canvas>
+                  </div>
+                  <details class="assumptions">
+                    <summary>Method</summary>
+                    <div class="panel-body note">
+                      Five equal rank buckets, low → high. Paths compound the
+                      selected horizon labels and may overlap; they are not
+                      executable portfolio returns.
+                    </div>
+                  </details>
+                </div>
+              </div>
+            </div>
+            <div
+              aria-labelledby="tab-trace"
+              data-result-panel=""
+              hidden=""
+              id="result-trace"
+              role="tabpanel"
+            >
+              <div class="panel below">
+                <div
+                  class="panel-head"
+                  title="source → variables → score → target → order → fill → NAV"
+                >
+                  <h2>Trace the decision</h2>
+                </div>
+                <div class="panel-body" id="detail">
+                  <div class="empty">
+                    Select an asset and date to reveal the calculation and
+                    ledger.
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              aria-labelledby="tab-robust"
+              data-result-panel=""
+              hidden=""
+              id="result-robust"
+              role="tabpanel"
+            >
+              <div class="panel below">
+                <div class="panel-head">
+                  <h2>Robustness &amp; out-of-sample</h2>
+                  <span class="tag">All trials retained</span>
+                </div>
+                <div class="panel-body" id="robustReport">
+                  <div class="empty">
+                    Enable robustness when running a longer panel.
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              aria-labelledby="tab-context"
+              data-result-panel=""
+              hidden=""
+              id="result-context"
+              role="tabpanel"
+            >
               <div class="panel below">
                 <div class="panel-head">
                   <h2>Context from another dataset</h2>
@@ -1082,159 +1954,16 @@ Save or load a version to compare with the editor.</pre>
                     Backward as-of join, using availability timestamps.
                   </p>
                   <canvas
-                    id="contextChart"
                     aria-label="Context series on its own axis"
+                    id="contextChart"
                     role="img"
                   ></canvas>
                 </div>
               </div>
             </div>
-          </div>
-          <div class="two">
-            <div class="panel">
-              <div class="panel-head">
-                <h2>
-                  Cross-section
-                  <span id="selectedDate" class="pill">Select a date</span>
-                </h2>
-                <label class="checkbox"
-                  ><input type="checkbox" id="labels" checked /> Evaluation
-                  labels</label
-                >
-              </div>
-              <div id="crossTable" class="table-wrap">
-                <div class="empty">Click a date after running an edge.</div>
-              </div>
-            </div>
-            <div class="panel">
-              <div class="panel-head">
-                <h2>Score → forward return</h2>
-                <span class="note" id="scatterCount">0 pairs</span>
-              </div>
-              <div class="chart-wrap">
-                <canvas
-                  id="scatterChart"
-                  aria-label="Score versus forward return scatter"
-                  role="img"
-                ></canvas>
-              </div>
-              <div class="panel-body note">
-                Evaluation only. Click a point to inspect its asset and date.
-                Labels are never available to the feature engine.
-              </div>
-            </div>
-          </div>
-          <div class="two">
-            <div class="panel">
-              <div class="panel-head">
-                <h2>Rank IC through time</h2>
-                <span class="note">per cross-section</span>
-              </div>
-              <div class="chart-wrap">
-                <canvas
-                  id="icChart"
-                  aria-label="Rank information coefficient and rolling mean"
-                  role="img"
-                ></canvas>
-              </div>
-              <div class="panel-body" id="icSummary"></div>
-              <div class="chart-wrap short">
-                <canvas
-                  id="heatChart"
-                  aria-label="IC heatmap by time"
-                  role="img"
-                ></canvas>
-              </div>
-            </div>
-            <div class="panel">
-              <div class="panel-head">
-                <h2>Quantile paths</h2>
-                <span class="note">diagnostic · gross</span>
-              </div>
-              <div class="chart-wrap">
-                <canvas
-                  id="quantileChart"
-                  aria-label="Compounded quantile forward returns"
-                  role="img"
-                ></canvas>
-              </div>
-              <div class="panel-body note">
-                Five equal rank buckets, low → high. Paths compound the selected
-                horizon labels and may overlap; they are not executable
-                portfolio returns.
-              </div>
-            </div>
-          </div>
-          <div class="two">
-            <div class="panel">
-              <div class="panel-head">
-                <h2>Account NAV & benchmark</h2>
-                <div class="chart-legend">
-                  <span><i class="swatch"></i>NAV</span
-                  ><span
-                    ><i class="swatch" style="background: var(--orange)"></i
-                    >equal-weight sample</span
-                  >
-                </div>
-              </div>
-              <div class="chart-wrap">
-                <canvas
-                  id="navChart"
-                  aria-label="Net account equity and benchmark"
-                  role="img"
-                ></canvas>
-              </div>
-              <div class="chart-wrap short">
-                <div class="chart-label">UNDERWATER · fraction below peak</div>
-                <canvas
-                  id="drawdownChart"
-                  aria-label="Drawdown"
-                  role="img"
-                ></canvas>
-              </div>
-            </div>
-            <div class="panel">
-              <div class="panel-head"><h2>Performance & assumptions</h2></div>
-              <details class="panel-body">
-                <summary>Chart values · accessible table</summary>
-                <p class="note">
-                  Sampled chart timestamps. Click a row for original source
-                  fields and ledger. Returns are fractions; NAV/costs use
-                  dataset currency. Quantile paths are gross diagnostics.
-                </p>
-                <div id="seriesTable" class="table-wrap"></div>
-              </details>
-              <div class="panel-body" id="performance">
-                <div class="empty">Account metrics appear after a run.</div>
-              </div>
-            </div>
-          </div>
-          <div class="panel below">
-            <div class="panel-head">
-              <h2>Trace the decision</h2>
-              <span class="note"
-                >source → variables → score → target → order → fill → NAV</span
-              >
-            </div>
-            <div class="panel-body" id="detail">
-              <div class="empty">
-                Select an asset and date to reveal the calculation and ledger.
-              </div>
-            </div>
-          </div>
-          <div class="panel below">
-            <div class="panel-head">
-              <h2>Robustness & out-of-sample</h2>
-              <span class="tag">All trials retained</span>
-            </div>
-            <div class="panel-body" id="robustReport">
-              <div class="empty">
-                Enable robustness when running a longer panel.
-              </div>
-            </div>
-          </div>
+          </section>
         </section>
-        <section id="view-explorer" data-page hidden>
+        <section data-page="" hidden="" id="view-explorer">
           <div class="panel">
             <div class="panel-head">
               <h2>Observed data · table fallback</h2>
@@ -1243,7 +1972,7 @@ Save or load a version to compare with the editor.</pre>
                 ><button id="next">Next →</button>
               </div>
             </div>
-            <div id="dataTable" class="table-wrap"></div>
+            <div class="table-wrap" id="dataTable"></div>
             <div class="panel-body note" id="pageInfo"></div>
           </div>
           <div class="two">
@@ -1258,23 +1987,23 @@ Save or load a version to compare with the editor.</pre>
               </div>
               <div class="chart-wrap">
                 <canvas
-                  id="histChart"
                   aria-label="Histogram of selected field"
+                  id="histChart"
                   role="img"
                 ></canvas>
               </div>
-              <div id="distribution" class="panel-body"></div>
+              <div class="panel-body" id="distribution"></div>
             </div>
             <div class="panel">
-              <div class="panel-head"><h2>Coverage & provenance</h2></div>
-              <div id="explorerMeta" class="panel-body"></div>
+              <div class="panel-head"><h2>Coverage &amp; provenance</h2></div>
+              <div class="panel-body" id="explorerMeta"></div>
             </div>
           </div>
         </section>
-        <section id="view-catalog" data-page hidden>
+        <section data-page="" hidden="" id="view-catalog">
           <div id="catalogCards"></div>
         </section>
-        <section id="view-history" data-page hidden>
+        <section data-page="" hidden="" id="view-history">
           <div class="two" style="margin-top: 0">
             <div class="panel">
               <div class="panel-head">
@@ -1297,50 +2026,174 @@ Save or load a version to compare with the editor.</pre>
                 <label>Run A<select id="compareA"></select></label
                 ><label>Run B<select id="compareB"></select></label>
               </div>
-              <button id="compare" class="below">
-                Compare configuration & outcomes
+              <button class="below" id="compare">
+                Compare configuration &amp; outcomes
               </button>
               <div id="comparison"></div>
             </div>
           </div>
         </section>
-        <footer id="attribution">
-          q_plat · Research tools. Observations are fetched by window and held
-          in browser RAM only.
-        </footer>
+        <section data-page="" hidden="" id="view-connections">
+          <div class="connection-grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>AI connections</h2>
+                <span class="tag">API + MCP</span>
+              </div>
+              <div class="panel-body">
+                <div class="endpoint">
+                  <span>MCP endpoint</span><code id="mcpEndpoint"></code
+                  ><button id="copyEndpoint">Copy</button>
+                </div>
+                <div class="row below">
+                  <a
+                    class="button"
+                    href="/openapi.json"
+                    id="openapiLink"
+                    rel="noopener"
+                    target="_blank"
+                    >OpenAPI ↗</a
+                  ><a
+                    class="button"
+                    href="https://github.com/dakiemdarktharr/q_plat/blob/main/docs/ai.md"
+                    rel="noopener"
+                    target="_blank"
+                    >Client setup ↗</a
+                  >
+                </div>
+                <details class="below">
+                  <summary>Connect your AI</summary>
+                  <ol>
+                    <li>Create a token below.</li>
+                    <li>
+                      Add the MCP URL to a client that supports custom
+                      Authorization headers, or use the stdio bridge in the
+                      repo.
+                    </li>
+                    <li>Set <code>Authorization: Bearer YOUR_TOKEN</code>.</li>
+                  </ol>
+                  <p>
+                    Tokens expire after 30 days. Read access sees private
+                    research; Research also saves edges and starts, retries or
+                    cancels jobs. No built-in paid AI service. Client charges,
+                    if any, are controlled by you.
+                  </p>
+                </details>
+                <div class="divider"></div>
+                <div class="form-grid">
+                  <label
+                    >Name<input
+                      id="tokenLabel"
+                      maxlength="80"
+                      value="My AI" /></label
+                  ><label
+                    >Permission<select id="tokenScope">
+                      <option value="read">Read only</option>
+                      <option value="research">Research · read + write</option>
+                    </select></label
+                  >
+                </div>
+                <div class="row below">
+                  <button class="primary" id="createToken">Create token</button
+                  ><button id="refreshTokens">Refresh</button>
+                </div>
+                <div class="token-reveal" hidden="" id="newToken">
+                  <label
+                    >Copy now · shown once<input
+                      autocomplete="off"
+                      id="tokenValue"
+                      readonly=""
+                      type="password"
+                  /></label>
+                  <div class="row below">
+                    <button id="copyToken">Copy token</button
+                    ><button id="hideToken">Dismiss</button>
+                  </div>
+                  <p id="tokenExpiry"></p>
+                </div>
+                <div class="below" id="tokenList"></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h2>From prompt to experiment</h2></div>
+              <div class="panel-body">
+                <pre>
+List available datasets.
+Validate a four-period momentum edge.
+Run it on UCI with 10 bps fees.
+Show IC, costs and sample limitations.
+Compare against mean reversion.</pre>
+                <div class="actions">
+                  <button id="copyPrompt">Copy prompt</button
+                  ><button id="aiRuns">Open runs →</button>
+                </div>
+                <details>
+                  <summary>Available tools</summary>
+                  <p>
+                    Catalog · data window · validate · save edge · run · jobs ·
+                    cancel · retry · reports · trace · compare
+                  </p>
+                </details>
+              </div>
+            </div>
+          </div>
+        </section>
+        <details class="source-footer">
+          <summary>Source &amp; limitations</summary>
+          <footer id="attribution">
+            q_plat · Research tools. Observations are fetched by window and held
+            in browser RAM only.
+          </footer>
+        </details>
       </main>
     </div>
     <dialog id="workspaceDialog">
-      <h2>Open a private workspace</h2>
-      <p class="note below">
-        Your edges, notes and runs are isolated from other visitors. Use the
-        same workspace name and passphrase to return on another device.
+      <h2>Your workspace</h2>
+      <p hidden="" id="guestNotice">
+        Save this guest workspace to keep its edges and runs.
       </p>
       <label
         >Workspace name<input
-          id="workspaceName"
           autocomplete="username"
-          minlength="3"
+          id="workspaceName"
           maxlength="48"
+          minlength="3"
           placeholder="your-research-desk" /></label
       ><label class="below"
         >Passphrase · at least 12 characters<input
-          id="workspacePassword"
-          type="password"
           autocomplete="current-password"
+          id="workspacePassword"
           minlength="12"
+          type="password"
       /></label>
-      <p class="note">
-        Keep your passphrase safe. No recovery email is collected.
-      </p>
       <div id="loginError" role="alert"></div>
       <div class="actions">
         <button id="closeDialog">Close</button
         ><button id="createWorkspace">Create</button
-        ><button id="loginWorkspace" class="primary">Sign in</button>
+        ><button class="primary" id="loginWorkspace">Sign in</button>
       </div>
+      <details>
+        <summary>Access &amp; recovery</summary>
+        <p>
+          Use the same name and passphrase on another device. No recovery email
+          is collected. Guest access lasts 24 hours and allows three runs.
+        </p>
+      </details>
     </dialog>
-    <div class="tooltip" id="tooltip" hidden></div>
+    <div class="tooltip" hidden="" id="tooltip"></div>
+    <dialog id="commandDialog">
+      <div class="panel-head">
+        <h2>Jump to</h2>
+        <button aria-label="Close commands" id="closeCommands">×</button>
+      </div>
+      <input
+        aria-label="Find a command"
+        autocomplete="off"
+        id="commandSearch"
+        placeholder="Find a screen or action…"
+      />
+      <div class="command-list" id="commandList"></div>
+    </dialog>
     <script>
       // API CLIENT — productionOrigin is set once after the actual alias is verified.
       const productionOrigin = "https://q-plat.vercel.app";
@@ -1423,21 +2276,39 @@ Save or load a version to compare with the editor.</pre>
             "error",
           );
         } finally {
-          button.disabled = false;
+          button.disabled =
+            ["run", "quickRun"].includes(button.id) && !!state.running;
         }
       }
-      function requireWorkspace() {
+      async function requireWorkspace() {
         if (local)
           throw new Error(
             "Open this screen on production HTTPS to write or run private research.",
           );
         if (!state.workspace) {
-          $("workspaceDialog").showModal();
-          throw new Error("Create or sign in to your private workspace.");
+          setWorkspace(await api("guest", {}, {}));
+          notice("Guest workspace · 3 runs · save it to return later", "ok");
         }
       }
       function screen(view) {
+        if (
+          ![
+            "research",
+            "explorer",
+            "catalog",
+            "history",
+            "connections",
+          ].includes(view)
+        )
+          view = "research";
         state.selectedView = view;
+        document.querySelector(".filters").hidden = ![
+          "research",
+          "explorer",
+        ].includes(view);
+        if (view !== "connections") clearToken();
+        if (view === "connections")
+          loadTokens().catch((e) => notice(e.message, "error"));
         document
           .querySelectorAll("[data-page]")
           .forEach((el) => (el.hidden = el.id !== "view-" + view));
@@ -1447,14 +2318,17 @@ Save or load a version to compare with the editor.</pre>
             el.classList.toggle("active", el.dataset.view === view),
           );
         $("pageTitle").textContent = {
-          research: "Research your edge.",
-          explorer: "Know your observations.",
-          catalog: "Start with the source.",
-          history: "Keep the research trail.",
+          research: "Lab",
+          explorer: "Data",
+          catalog: "Sources",
+          history: "Runs",
+          connections: "AI connections",
         }[view];
         location.hash = view;
         updateLocalLink();
         if (view === "history" && state.workspace) history();
+        if (view === "research" && state.workspace)
+          loadEdges().catch((e) => notice(e.message, "error"));
         requestAnimationFrame(drawAll);
       }
       function updateLocalLink() {
@@ -1585,6 +2459,7 @@ Save or load a version to compare with the editor.</pre>
               : "No ready datasets. Owner ingestion is required.",
             state.versions.length ? "ok" : "",
           );
+          if (state.versions.length) $("notice").hidden = true;
         } catch (e) {
           notice(
             "Unable to load cloud observations: " +
@@ -1596,9 +2471,13 @@ Save or load a version to compare with the editor.</pre>
           );
         }
         screen(
-          ["research", "explorer", "catalog", "history"].includes(
-            location.hash.slice(1),
-          )
+          [
+            "research",
+            "explorer",
+            "catalog",
+            "history",
+            "connections",
+          ].includes(location.hash.slice(1))
             ? location.hash.slice(1)
             : "research",
         );
@@ -1760,7 +2639,8 @@ Save or load a version to compare with the editor.</pre>
       }
       let windowRequest = 0;
       function clearReport() {
-        $("runLabel").textContent = "Public data · no research run selected";
+        $("startCard").hidden = false;
+        $("runLabel").textContent = "Public data";
         $("selectedDate").textContent = "Select a date";
         $("kpis").innerHTML = [
           "Mean rank IC",
@@ -1772,7 +2652,7 @@ Save or load a version to compare with the editor.</pre>
             (label) =>
               '<div class="kpi"><span class="label">' +
               label +
-              "</span><strong>—</strong><small>Run an edge to evaluate this snapshot</small></div>",
+              "</span><strong>—</strong></div>",
           )
           .join("");
         for (const id of [
@@ -1848,9 +2728,12 @@ Save or load a version to compare with the editor.</pre>
       function setWorkspace(s) {
         state.workspace = s.workspace ? s : null;
         $("workspaceButton").textContent = s.workspace
-          ? "Workspace · " + s.name
-          : "Open workspace";
+          ? s.guest
+            ? "Save workspace"
+            : s.name
+          : "Workspace";
         $("logout").hidden = !s.workspace;
+        $("guestNotice").hidden = !s.guest;
       }
       async function workspace(create) {
         try {
@@ -1897,7 +2780,7 @@ Save or load a version to compare with the editor.</pre>
         );
       }
       async function validate() {
-        requireWorkspace();
+        await requireWorkspace();
         const p = await api(
           "validate",
           {},
@@ -1919,7 +2802,7 @@ Save or load a version to compare with the editor.</pre>
         notice("Edge validated against the selected snapshot.", "ok");
       }
       async function saveEdge(fork = false) {
-        requireWorkspace();
+        await requireWorkspace();
         const b = {
           id: state.edge?.edge,
           version: state.edge?.version,
@@ -2002,7 +2885,7 @@ Save or load a version to compare with the editor.</pre>
         showDiff();
       }
       async function run() {
-        requireWorkspace();
+        await requireWorkspace();
         const code = $("code").value,
           saved =
             state.edge?.code === code &&
@@ -2023,14 +2906,12 @@ Save or load a version to compare with the editor.</pre>
             robustness: $("robustness").checked,
           },
         );
-        $("jobStatus").textContent =
-          "Job " +
-          r.job +
-          " accepted by cloud dispatcher. You may close this tab.";
+        $("jobStatus").textContent = "Job " + r.job + " accepted";
         notice(
           "Research job accepted. Its status is saved in your workspace.",
           "ok",
         );
+        setRunning(true);
         pollJob(r.job);
       }
       async function pollJob(id) {
@@ -2039,15 +2920,20 @@ Save or load a version to compare with the editor.</pre>
           if (!j) return;
           $("jobStatus").textContent = "Job " + id + " · " + j.status;
           if (j.status === "completed" && j.summary?.run) {
+            setRunning(false);
             await openRun(j.summary.run);
+            resultTab("overview");
+            notice("Experiment ready · inspect the signal and its costs", "ok");
             return;
           }
           if (["failed", "cancelled"].includes(j.status)) {
+            setRunning(false);
             notice(j.error || "Job " + j.status, "error");
             return;
           }
           setTimeout(() => pollJob(id), 2200);
         } catch (e) {
+          setRunning(false);
           notice(
             "Job status could not be read. Use Runs & Jobs to reconnect. " +
               e.message,
@@ -2089,6 +2975,7 @@ Save or load a version to compare with the editor.</pre>
         )
           .map((v) => "<option>" + esc(v) + "</option>")
           .join("");
+        $("startCard").hidden = true;
         const m = r.metrics,
           d = r.diagnostic,
           items = [
@@ -2112,15 +2999,23 @@ Save or load a version to compare with the editor.</pre>
         $("kpis").innerHTML = items
           .map(
             ([label, value, note]) =>
-              '<div class="kpi"><span class="label">' +
+              '<div class="kpi" title="' +
+              esc(note) +
+              '"><span class="label">' +
               esc(label) +
               "</span><strong>" +
               esc(value) +
-              "</strong><small>" +
+              '</strong><span class="sr-only">' +
               esc(note) +
-              "</small></div>",
+              "</span></div>",
           )
           .join("");
+        document.querySelectorAll(".kpi").forEach((k) => {
+          const value = parseFloat(k.querySelector("strong").textContent);
+          if (/return|drawdown/i.test(k.textContent))
+            k.dataset.sign =
+              value > 0 ? "positive" : value < 0 ? "negative" : "zero";
+        });
         $("icSummary").innerHTML =
           kv({
             "Median IC": fmt(d.medianIC),
@@ -2417,7 +3312,7 @@ Save or load a version to compare with the editor.</pre>
         if (rs.runs.length > 1) $("compareB").selectedIndex = 1;
       }
       // CHART RENDERERS — original Canvas implementation, no external library or data cache.
-      const colors = ["#166953", "#c56c35", "#4d79a4", "#9c71a2", "#a7a341"];
+      const colors = ["#a78bfa", "#f4d35e", "#e9d5ff", "#8b5cf6", "#a5a1b5"];
       function canvas(id) {
         const el = $(id),
           rect = el.getBoundingClientRect();
@@ -2440,7 +3335,7 @@ Save or load a version to compare with the editor.</pre>
           iw = w - L - R,
           ih = h - T - B;
         ctx.font = "10px Segoe UI";
-        ctx.fillStyle = "#78877c";
+        ctx.fillStyle = "#a5a1b5";
         const values = data
           .flatMap((d) => keys.map((k) => d[k]))
           .filter((x) => typeof x === "number" && Number.isFinite(x));
@@ -2468,12 +3363,12 @@ Save or load a version to compare with the editor.</pre>
         for (let g = 0; g < 4; g++) {
           const v = lo + ((hi - lo) * g) / 3,
             yy = y(v);
-          ctx.strokeStyle = "#e6ebe2";
+          ctx.strokeStyle = "#272331";
           ctx.beginPath();
           ctx.moveTo(L, yy);
           ctx.lineTo(w - R, yy);
           ctx.stroke();
-          ctx.fillStyle = "#78877c";
+          ctx.fillStyle = "#a5a1b5";
           ctx.textAlign = "right";
           ctx.fillText(fmt(v, Math.abs(v) < 1 ? 3 : 1), L - 7, yy + 3);
         }
@@ -2485,7 +3380,7 @@ Save or load a version to compare with the editor.</pre>
           const cw = Math.max(1, Math.min(9, (iw / data.length) * 0.7));
           data.forEach((d, i) => {
             if (!Number.isFinite(d.open)) return;
-            ctx.strokeStyle = d.close >= d.open ? colors[0] : "#b66456";
+            ctx.strokeStyle = d.close >= d.open ? "#4ade80" : "#fb7185";
             ctx.fillStyle = ctx.strokeStyle;
             ctx.beginPath();
             ctx.moveTo(x(i), y(d.high));
@@ -2536,7 +3431,7 @@ Save or load a version to compare with the editor.</pre>
               (d) => d.date >= f.date && (d.startDate || d.date) <= f.date,
             );
             if (i < 0 || f.type !== "fill") continue;
-            ctx.fillStyle = f.filled > 0 ? "#166953" : "#b66456";
+            ctx.fillStyle = f.filled > 0 ? "#4ade80" : "#fb7185";
             ctx.beginPath();
             ctx.arc(x(i), y(f.referencePrice), 3.5, 0, Math.PI * 2);
             ctx.fill();
@@ -2546,14 +3441,14 @@ Save or load a version to compare with the editor.</pre>
                 (d.startDate || d.date) <= f.decisionDate,
             );
             if (decision >= 0) {
-              ctx.strokeStyle = "#927047";
+              ctx.strokeStyle = "#f4d35e";
               ctx.strokeRect(x(decision) - 3, h - B - 7, 6, 6);
             }
           }
         const selected = state.hoverDate || state.date;
         const idx = data.findIndex((d) => d.date === selected);
         if (idx >= 0) {
-          ctx.strokeStyle = "#76887a";
+          ctx.strokeStyle = "#8e849f";
           ctx.setLineDash([3, 3]);
           ctx.beginPath();
           ctx.moveTo(x(idx), T);
@@ -2991,6 +3886,7 @@ Save or load a version to compare with the editor.</pre>
           window.open($("openProduction").href, "_blank", "noopener");
           return;
         }
+        $("guestNotice").hidden = !state.workspace?.guest;
         $("workspaceDialog").showModal();
       };
       $("closeDialog").onclick = () => $("workspaceDialog").close();
@@ -3020,10 +3916,247 @@ Save or load a version to compare with the editor.</pre>
       };
       $("code").oninput = () => {
         showDiff();
-        $("editorStatus").textContent =
-          "Editor changed. Validate and run to update evaluation charts.";
+        $("editorStatus").textContent = "Edited · run to update results";
       };
       window.addEventListener("resize", drawAll);
+      // INTERACTION — focused result panels, shortcuts and scoped AI connections.
+      function resultTab(name, focus = false) {
+        document
+          .querySelectorAll("[data-result-panel]")
+          .forEach((p) => (p.hidden = p.id !== "result-" + name));
+        document.querySelectorAll("[data-result]").forEach((b) => {
+          const selected = b.dataset.result === name;
+          b.setAttribute("aria-selected", selected);
+          b.tabIndex = selected ? 0 : -1;
+          if (selected && focus) b.focus();
+        });
+        requestAnimationFrame(drawAll);
+      }
+      function setRunning(value) {
+        state.running = value;
+        for (const id of ["run", "quickRun"]) {
+          $(id).disabled = value;
+          $(id).textContent = value
+            ? "Running…"
+            : id === "run"
+              ? "Run edge ↗"
+              : "Run this edge ↗";
+          $(id).setAttribute("aria-busy", value);
+        }
+      }
+      document.querySelectorAll("[data-result]").forEach((b) => {
+        b.onclick = () => resultTab(b.dataset.result);
+        b.onkeydown = (e) => {
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key))
+            return;
+          e.preventDefault();
+          const tabs = [...document.querySelectorAll("[data-result]")],
+            i = tabs.indexOf(b);
+          const next =
+            e.key === "Home"
+              ? 0
+              : e.key === "End"
+                ? tabs.length - 1
+                : (i + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) %
+                  tabs.length;
+          resultTab(tabs[next].dataset.result, true);
+        };
+      });
+      $("chartLayers").ontoggle = () => requestAnimationFrame(drawAll);
+      $("quickRun").onclick = () => action($("quickRun"), run);
+      $("inspectPoint").onclick = () => {
+        resultTab("signal");
+        $("result-signal").scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      };
+      $("aiRuns").onclick = () => screen("history");
+      $("toggleFilters").onclick = () => {
+        const open = document
+          .querySelector(".filters")
+          .classList.toggle("expanded");
+        $("toggleFilters").setAttribute("aria-expanded", open);
+      };
+      $("mcpEndpoint").textContent = base + "/mcp";
+      $("openapiLink").href = base + "/openapi.json";
+      async function copy(text, label) {
+        try {
+          await navigator.clipboard.writeText(text);
+          notice(label + " copied", "ok");
+        } catch {
+          throw new Error(
+            "Clipboard unavailable. Select and copy the value manually.",
+          );
+        }
+      }
+      function clearToken() {
+        $("tokenValue").value = "";
+        $("newToken").hidden = true;
+      }
+      async function loadTokens() {
+        if (!state.workspace || state.workspace.guest) {
+          $("tokenList").innerHTML =
+            '<div class="empty">Open or save a named workspace to connect AI.</div>';
+          return;
+        }
+        const { tokens } = await api("tokens");
+        $("tokenList").innerHTML = tokens.length
+          ? tokens
+              .map(
+                (t) =>
+                  '<div class="token-row"><div><b>' +
+                  esc(t.label) +
+                  '</b><div class="mono muted">' +
+                  esc(t.prefix) +
+                  "… · " +
+                  esc(t.scope) +
+                  " · " +
+                  (t.revokedAt
+                    ? "revoked"
+                    : Date.parse(t.expiresAt) <= Date.now()
+                      ? "expired"
+                      : "expires " + t.expiresAt.slice(0, 10)) +
+                  "</div></div>" +
+                  (!t.revokedAt
+                    ? '<button data-revoke="' + esc(t.id) + '">Revoke</button>'
+                    : "") +
+                  "</div>",
+              )
+              .join("")
+          : '<div class="empty">No AI connections</div>';
+        document.querySelectorAll("[data-revoke]").forEach(
+          (b) =>
+            (b.onclick = () =>
+              action(b, async () => {
+                await api("tokens", {}, { revoke: b.dataset.revoke });
+                clearToken();
+                await loadTokens();
+                notice("Token revoked", "ok");
+              })),
+        );
+      }
+      $("createToken").onclick = () =>
+        action($("createToken"), async () => {
+          if (!state.workspace || state.workspace.guest) {
+            $("workspaceButton").click();
+            return;
+          }
+          clearToken();
+          const t = await api(
+            "tokens",
+            {},
+            { label: $("tokenLabel").value, scope: $("tokenScope").value },
+          );
+          $("tokenValue").value = t.token;
+          $("tokenExpiry").textContent = "Expires " + t.expiresAt.slice(0, 10);
+          $("newToken").hidden = false;
+          await loadTokens();
+        });
+      $("hideToken").onclick = clearToken;
+      $("copyToken").onclick = () =>
+        action($("copyToken"), () => copy($("tokenValue").value, "Token"));
+      $("copyEndpoint").onclick = () =>
+        action($("copyEndpoint"), () =>
+          copy($("mcpEndpoint").textContent, "MCP URL"),
+        );
+      $("copyPrompt").onclick = () =>
+        action($("copyPrompt"), () =>
+          copy(
+            "List available datasets. Validate a four-period momentum edge. Run it on UCI with 10 bps fees. Show IC, costs and sample limitations. Compare against mean reversion.",
+            "Prompt",
+          ),
+        );
+      $("refreshTokens").onclick = () => action($("refreshTokens"), loadTokens);
+      const commands = [
+        ["Lab", () => screen("research"), "1"],
+        ["Data", () => screen("explorer"), "2"],
+        ["Sources", () => screen("catalog"), "3"],
+        ["Runs", () => screen("history"), "4"],
+        ["AI connections", () => screen("connections"), "5"],
+        [
+          "Run edge",
+          () => {
+            screen("research");
+            $("run").click();
+          },
+          "Ctrl Enter",
+        ],
+        [
+          "Validate edge",
+          () => {
+            screen("research");
+            $("validate").click();
+          },
+          "",
+        ],
+        ["Workspace", () => $("workspaceButton").click(), ""],
+      ];
+      function showCommands() {
+        const needle = $("commandSearch").value.toLowerCase();
+        $("commandList").innerHTML =
+          commands
+            .map(([name, fn, shortcut], i) =>
+              name.toLowerCase().includes(needle)
+                ? '<button data-command="' +
+                  i +
+                  '"><span>' +
+                  esc(name) +
+                  "</span><kbd>" +
+                  shortcut +
+                  "</kbd></button>"
+                : "",
+            )
+            .join("") || '<div class="empty">No matching command</div>';
+        document.querySelectorAll("[data-command]").forEach(
+          (b) =>
+            (b.onclick = () => {
+              $("commandDialog").close();
+              commands[+b.dataset.command][1]();
+            }),
+        );
+      }
+      $("commandButton").onclick = () => {
+        $("commandSearch").value = "";
+        showCommands();
+        $("commandDialog").showModal();
+        $("commandSearch").focus();
+      };
+      $("closeCommands").onclick = () => $("commandDialog").close();
+      $("commandSearch").oninput = showCommands;
+      $("commandSearch").onkeydown = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          $("commandList").querySelector("button")?.click();
+        }
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          $("commandList").querySelector("button")?.focus();
+        }
+      };
+      document.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+          e.preventDefault();
+          if (!document.querySelector("dialog[open]"))
+            $("commandButton").click();
+        }
+        if (
+          (e.ctrlKey || e.metaKey) &&
+          e.key === "Enter" &&
+          !document.querySelector("dialog[open]")
+        ) {
+          e.preventDefault();
+          screen("research");
+          if (!$("run").disabled) $("run").click();
+        }
+      });
+      window.addEventListener("hashchange", () => {
+        const v = location.hash.slice(1);
+        if (v !== state.selectedView) screen(v);
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) clearToken();
+      });
       initialize();
     </script>
   </body>

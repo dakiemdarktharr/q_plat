@@ -31,3 +31,5 @@ jobs:
         run: npx playwright install --with-deps chromium
       - if: github.event_name == 'workflow_dispatch'
         run: npm run test:e2e
+      - if: github.event_name == 'workflow_dispatch'
+        run: node scripts/ai-e2e.mjs

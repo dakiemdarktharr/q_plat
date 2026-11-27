@@ -104,6 +104,7 @@ try {
   );
   pass("04 future field and negative lag rejected through editor");
   await page.locator("#code").fill(code);
+  await page.locator("#testSettings > summary").click();
   await page.locator("#robustness").uncheck();
   await page.locator("#run").click();
   await page.waitForFunction(
@@ -145,6 +146,7 @@ try {
   );
   const rankRows = await page.locator("#crossTable tbody tr").count();
   assert.equal(rankRows, 30);
+  await page.locator("#tab-signal").click();
   await page.locator("#crossTable tbody tr").nth(1).click();
   await page.waitForFunction(
     () =>
@@ -235,6 +237,7 @@ try {
         os.find((o) => o.value.startsWith("ecb-") && o.value.endsWith("|USD"))
           ?.value,
     );
+  await page.locator("#tab-context").click();
   await page.locator("#context").selectOption(contextOption);
   await page.waitForFunction(() =>
     document.querySelector("#contextNote").textContent.includes("Coverage"),
@@ -263,6 +266,7 @@ try {
     {},
     { timeout: 30000 },
   );
+  await page.locator("#testSettings > summary").click();
   await page.locator("#feeBps").fill("20");
   const secondAccepted = page.waitForResponse(
     (r) => r.url().includes("op=run") && r.request().method() === "POST",
@@ -399,6 +403,7 @@ try {
       (f) => f.trainEnd + f.purge < f.testStart && f.trials.length === 2,
     ),
   );
+  await page.locator("#tab-robust").click();
   await page
     .locator("#robustReport summary")
     .filter({ hasText: "Fold 1" })

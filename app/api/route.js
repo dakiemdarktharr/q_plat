@@ -10,6 +10,9 @@ import {
   rateLimit,
   sameOrigin,
   httpError,
+  authorizeOperation,
+  issueToken,
+  guestSession,
 } from "../../lib/auth.mjs";
 import { CATALOG, OPTIONAL_SOURCES } from "../../lib/catalog.mjs";
 import { parse, evaluate, makePanel } from "../../lib/dsl.mjs";
@@ -83,7 +86,7 @@ async function handle(request) {
       }
       return json(
         {
-          app: "q_plat",
+          app: "qtpatuti",
           engine: ENGINE_VERSION,
           database,
           commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
@@ -226,24 +229,55 @@ async function handle(request) {
       );
     }
     if (op === "workspace" && request.method === "POST") {
+      if (request.headers.has("authorization"))
+        throw httpError("Use the website to sign in.", 403);
       await rateLimit(
         database,
         "login:" + (request.headers.get("x-forwarded-for") || "unknown"),
         12,
       );
       const b = await bodyOf(request),
-        s = await login(database, b, b.create === true);
+        s = await login(
+          database,
+          b,
+          b.create === true,
+          await session(request, database, false),
+        );
       return json({ workspace: s.workspace, name: s.name }, 200, {
+        "Set-Cookie": s.cookie,
+      });
+    }
+    if (op === "guest" && request.method === "POST") {
+      if (request.headers.has("authorization"))
+        throw httpError("Use the website to start.", 403);
+      const current = await session(request, database, false);
+      if (current)
+        return json({
+          workspace: current.workspace,
+          name: current.name,
+          guest: !!current.guest,
+        });
+      await rateLimit(
+        database,
+        "guest:" + (request.headers.get("x-forwarded-for") || "unknown"),
+        2,
+      );
+      const s = await guestSession(database);
+      return json({ workspace: s.workspace, name: s.name, guest: true }, 201, {
         "Set-Cookie": s.cookie,
       });
     }
     if (op === "session" && request.method === "GET") {
       const s = await session(request, database, false);
       return json(
-        s ? { workspace: s.workspace, name: s.name } : { workspace: null },
+        s
+          ? { workspace: s.workspace, name: s.name, guest: !!s.guest }
+          : { workspace: null },
       );
     }
     if (op === "logout" && request.method === "POST") {
+      if (request.headers.has("authorization"))
+        throw httpError("Use the website to sign out.", 403);
       const s = await session(request, database, false);
       if (s) await database.collection("sessions").deleteOne({ _id: s._id });
       return json({ ok: true }, 200, {
@@ -287,11 +321,61 @@ async function handle(request) {
     const s = owner(request)
       ? { workspace: "owner" }
       : await session(request, database);
+    authorizeOperation(s, op, request.method);
     await rateLimit(
       database,
       s.workspace + ":" + op,
       ["run", "validate", "retry"].includes(op) ? 10 : 120,
     );
+    if (op === "tokens") {
+      if (s.auth === "token" || s.guest)
+        throw httpError(
+          "Sign in to a named workspace to manage AI access.",
+          403,
+        );
+      if (request.method === "GET")
+        return json({
+          tokens: await database
+            .collection("api_tokens")
+            .find(
+              { workspace: s.workspace },
+              { projection: { _id: 0, workspace: 0, workspaceName: 0 } },
+            )
+            .sort({ createdAt: -1 })
+            .limit(50)
+            .toArray(),
+        });
+      const b = await bodyOf(request);
+      if (b.revoke) {
+        await database
+          .collection("api_tokens")
+          .updateOne(
+            { workspace: s.workspace, id: String(b.revoke) },
+            { $set: { revokedAt: new Date() } },
+          );
+        return json({ ok: true });
+      }
+      await rateLimit(database, s.workspace + ":token-create", 5);
+      return json(await issueToken(database, s, b), 201);
+    }
+    if (s.guest && ["run", "retry"].includes(op) && request.method === "POST") {
+      // Atomic lifetime quota; guest sessions cannot consume unbounded cloud jobs.
+      const quota = await database
+        .collection("workspaces")
+        .updateOne(
+          {
+            _id: s.workspace,
+            guest: true,
+            $or: [{ runs: { $lt: 3 } }, { runs: { $exists: false } }],
+          },
+          { $inc: { runs: 1 } },
+        );
+      if (!quota.modifiedCount)
+        throw httpError(
+          "Save your workspace to run more than three experiments.",
+          403,
+        );
+    }
     if (op === "validate" && request.method === "POST") {
       const b = await bodyOf(request),
         v = await getVersion(database, b.datasetVersion),

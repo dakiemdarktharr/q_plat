@@ -1,8 +1,12 @@
-# q_plat
+# qtpatuti · q_plat
 
 Single-file quant research frontend, cloud-only market ingestion, immutable MongoDB Atlas snapshots and private workspaces. [Production](https://q-plat.vercel.app) · [Download the same index.html](https://q-plat.vercel.app/download).
 
-Open **Open workspace**, choose a workspace name and a passphrase of at least 12 characters, then create it. Keep that passphrase to reopen your private research. Select a dataset, write your own DSL code, Validate, Save version and Run research. Runs & Jobs reopens saved reports, retries jobs and compares runs. Editor changes take effect on the next run; charts identify the saved run they display.
+Write an edge or select an editable example, then **Run edge**. A private guest workspace starts automatically (24-hour access, three run attempts). Choose **Save workspace** and set a name/passphrase to preserve access to its research. Returning users open Workspace and sign in. Lab keeps price/score beside code; Overview, Signal, Trace, Robustness and Context focus the results. Runs reopens reports, retries jobs and compares experiments. Ctrl/Cmd K opens navigation; Ctrl/Cmd Enter runs the editor. Editor changes take effect on the next run; charts identify the saved run they display.
+
+**AI** creates scoped, revocable 30-day tokens for the [MCP/API integration](docs/ai.md). [OpenAPI](https://q-plat.vercel.app/openapi.json) and `/mcp` use the same workspace authorization and research engine. No paid AI provider is required. The repository remains public and named `q_plat`; the product is now **qtpatuti**, using the same production alias, Atlas snapshots and saved workspaces.
+
+The [interaction review](docs/interaction-review.md) records the seven official references, evidence limitations, design decisions and state-by-state verification targets. Authenticated reference applications were not falsely claimed as tested.
 
 ## Run and verify
 
@@ -30,7 +34,7 @@ Production environment: `MONGODB_URI`, `MONGODB_DB=q_plat`, `OWNER_KEY`, `APP_OR
 
 Keep `index.html` as the sole frontend source. Sections are marked `THEME`, `LAYOUT`, `API CLIENT`, `CHART RENDERERS`, `INTERACTION`. Change CSS tokens in `:root`, named layout classes, or the canvas plot functions. Preserve API contracts and source/run/version labels. Do not reimport data or change the production project/alias when changing appearance. Run unit/build checks and relevant production E2E, compare `/` and `/download` SHA-256, and deploy the same Git-connected project.
 
-## Acceptance evidence — 2026-11-27 UTC
+## Original engine acceptance evidence — 2026-11-27 UTC
 
 Application revision `e8259e1db5c3093cff90bfbafeee89b118238d27`, production deployment `dpl_51Jb7PcNPG3SAczq9AG3uqnXCNPh`. The 19 browser checks completed at approximately 13:38 UTC. Atlas verification record `84557c61-882a-4d54-a915-2b203ed857a3` contains 11 passing scalar checks at 13:28:33 UTC in `q_plat_test.verification`. Generated test rows were removed after verification; production snapshots were retained.
 
@@ -49,7 +53,7 @@ Application revision `e8259e1db5c3093cff90bfbafeee89b118238d27`, production depl
 | 11 Artifact/UI | Production/download/local-source SHA-256 identical; Chromium file preview and 390px viewport passed, with no horizontal overflow or browser JS errors. Original inline Canvas charts; no CDN renderer or embedded dataset. |
 | 12 Release | Unauthenticated GitHub API/source access verified public `dakiemdarktharr/q_plat`. Vercel READY production alias `q-plat.vercel.app` serves the exact commit in `/api?op=health`; Atlas ping/readback passes. No error/fatal runtime logs during the completed E2E window. |
 
-HTML SHA-256: `9c7f8777bfba467f6eb2af432c71b37982aec14be16f30ccf866a9180db0fc2c`. Later documentation/test-only commits keep this application artifact unchanged. `node scripts/release-check.mjs --wait` verifies **current HEAD** against the actual deployed commit and public source, not a predicted URL. [Checks](https://github.com/dakiemdarktharr/q_plat/actions/workflows/checks.yml) runs unit/build/audit and production release checks; **Run workflow** also executes the full browser journey in GitHub's cloud without uploading data artifacts.
+Original artifact SHA-256: `9c7f8777bfba467f6eb2af432c71b37982aec14be16f30ccf866a9180db0fc2c`; this identifies the pre-redesign release only. `node scripts/release-check.mjs --wait` verifies **current HEAD** against the actual deployed commit and public source, not a predicted URL. [Checks](https://github.com/dakiemdarktharr/q_plat/actions/workflows/checks.yml) runs unit/build/audit and production release checks; **Run workflow** also executes both browser suites in GitHub's cloud without uploading data artifacts. `scripts/ai-e2e.mjs` checks guest → saved workspace, official MCP SDK HTTP and stdio clients, real cloud jobs, UI synchronization, permissions, revocation and mobile states. Local unit coverage now includes four AI authorization/protocol checks in addition to the 19 engine checks.
 
 | Snapshot | Normalized SHA-256 |
 |---|---|

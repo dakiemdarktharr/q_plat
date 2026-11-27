@@ -22,6 +22,7 @@
     "workflow": "5.8.0"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
     "@playwright/test": "1.65.1",
     "prettier": "3.10.1"
   },
