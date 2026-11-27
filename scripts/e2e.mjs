@@ -155,6 +155,67 @@ try {
     { timeout: 30000 },
   );
   pass("03 linked price/cross-section/detail controls", { assets: rankRows });
+  await page.locator("#priceChart").hover({ position: { x: 220, y: 80 } });
+  assert.ok(await page.locator("#tooltip").isVisible());
+  const beforeZoom = await page.locator("#from").inputValue();
+  await page.mouse.wheel(0, -300);
+  await page.waitForFunction(
+    (before) => document.querySelector("#from").value !== before,
+    beforeZoom,
+  );
+  await page.locator("#resetZoom").click();
+  await page.waitForFunction(
+    () => document.querySelectorAll("#seriesTable tbody tr").length === 25,
+  );
+  const rectangle = await page.locator("#priceChart").boundingBox();
+  await page.mouse.move(rectangle.x + 100, rectangle.y + 80);
+  await page.mouse.down();
+  await page.mouse.move(rectangle.x + 300, rectangle.y + 80, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForFunction(
+    () => document.querySelectorAll("#seriesTable tbody tr").length < 25,
+  );
+  await page.locator("#resetZoom").click();
+  await page.waitForFunction(
+    () => document.querySelectorAll("#seriesTable tbody tr").length === 25,
+  );
+  const marker = await page.evaluate(async (run) => {
+    const asset = document.querySelector("#asset").value,
+      version = document.querySelector("#dataset").value;
+    const [w, r] = await Promise.all([
+      fetch("/api?op=window&version=" + version + "&asset=" + asset, {
+        cache: "no-store",
+      }).then((r) => r.json()),
+      fetch("/api?op=runWindow&run=" + run + "&asset=" + asset, {
+        cache: "no-store",
+      }).then((r) => r.json()),
+    ]);
+    const f = r.fills.find((f) => f.type === "fill");
+    if (!f) return null;
+    const i = w.points.findIndex((p) => p.date === f.date),
+      b = document.querySelector("#priceChart").getBoundingClientRect();
+    let lo = Math.min(...w.points.map((p) => p.low)),
+      hi = Math.max(...w.points.map((p) => p.high));
+    const pad = (hi - lo) * 0.07;
+    lo -= pad;
+    hi += pad;
+    return {
+      x: 55 + (i / (w.points.length - 1)) * (b.width - 70),
+      y: 12 + ((hi - f.referencePrice) / (hi - lo)) * (b.height - 38),
+      date: f.date,
+    };
+  }, originalRun);
+  assert.ok(marker);
+  await page
+    .locator("#priceChart")
+    .click({ position: { x: marker.x, y: marker.y } });
+  await page.waitForFunction(
+    (date) =>
+      document.querySelector("#detail").textContent.includes(date) &&
+      document.querySelector("#selectedDate").textContent.includes(date),
+    marker.date,
+  );
+  pass("03 hover, zoom, brush and exact fill-marker drill-down");
   await page.locator("#frame").selectOption("5");
   await page.waitForFunction(
     () => document.querySelectorAll("#seriesTable tbody tr").length === 5,
@@ -266,26 +327,28 @@ try {
           .querySelector("#runLabel")
           .textContent.includes(id.slice(0, 8)),
       id,
-      { timeout: 300000 },
+      { timeout: 600000 },
     );
     return (
       await context.request.get(base + "/api?op=report&run=" + id)
     ).json();
   };
+  const exactAccepted = page.waitForResponse(
+    (r) => r.url().includes("op=run") && r.request().method() === "POST",
+  );
   await page.locator('[data-rerun="' + originalRun + '"]').click();
+  const rerunId = (await (await exactAccepted).json()).job;
   await page.waitForFunction(() =>
     document
       .querySelector("#notice")
       .textContent.includes("Exact rerun accepted"),
   );
   await page.waitForFunction(
-    () =>
-      document.querySelector("#jobStatus").textContent.includes("completed"),
-    {},
+    (id) =>
+      document.querySelector("#runLabel").textContent.includes(id.slice(0, 8)),
+    rerunId,
     { timeout: 120000 },
   );
-  await page.waitForTimeout(1200);
-  const rerunId = (await page.locator("#jobStatus").innerText()).split(" ")[1];
   const original = await (
     await context.request.get(base + "/api?op=report&run=" + originalRun)
   ).json();
@@ -295,6 +358,10 @@ try {
   assert.equal(original.runHash, rerun.runHash);
   assert.deepEqual(original.metrics, rerun.metrics);
   pass("08 exact saved snapshot rerun", { runHash: original.runHash });
+  await page
+    .locator("summary")
+    .filter({ hasText: "Execution, risk & universe" })
+    .click();
   await page.locator("#universe").fill("AA,AXP,BA,BAC,CAT");
   const subset = await submitAndWait();
   assert.equal(subset.universe.length, 5);
@@ -429,6 +496,13 @@ try {
   );
   assert.ok(await local.locator("#code").isVisible());
   assert.ok(await local.locator("#localBanner").isVisible());
+  await local.waitForFunction(
+    () =>
+      document.documentElement.dataset.ready === "true" &&
+      document.querySelectorAll("#dataTable tbody tr").length > 0,
+    {},
+    { timeout: 60000 },
+  );
   pass("11 file protocol public-data preview");
   await local.close();
   assert.equal(errors.length, 0, "Browser JavaScript errors");

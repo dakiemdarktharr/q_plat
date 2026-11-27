@@ -1,10 +1,12 @@
 # q_plat
 
-Single-file quant research frontend, cloud-only market ingestion, MongoDB Atlas snapshots and private workspaces. The project is still under acceptance testing; this README does not claim a completed release.
+Single-file quant research frontend, cloud-only market ingestion, immutable MongoDB Atlas snapshots and private workspaces. [Production](https://q-plat.vercel.app) · [Download the same index.html](https://q-plat.vercel.app/download).
+
+Open **Open workspace**, choose a workspace name and a passphrase of at least 12 characters, then create it. Keep that passphrase to reopen your private research. Select a dataset, write your own DSL code, Validate, Save version and Run research. Runs & Jobs reopens saved reports, retries jobs and compares runs. Editor changes take effect on the next run; charts identify the saved run they display.
 
 ## Run and verify
 
-Node 22+. `npm ci`, `npm test`, `npm run build`. Only generated numeric fixtures run locally. Never download market data or run ingestion locally. Ingestion refuses to execute outside a Vercel deployment.
+Node 22+. `npm ci`, `npm test`, `npm run build`. Only generated numeric fixtures run locally. Never download market data or run ingestion locally. Ingestion refuses to execute outside a Vercel deployment. `npm run test:e2e` runs the actual production UI in disposable Chromium contexts; install Chromium with `npx playwright install chromium` first. It prints only assertion names/counts/hashes, with no HAR, trace, screenshots or market payload artifacts.
 
 Production environment: `MONGODB_URI`, `MONGODB_DB=q_plat`, `OWNER_KEY`, `APP_ORIGIN`. Secrets are server-side only. A database identity must be restricted to `readWrite` on the app database and its named test database. Do not open network access or enable paid features to work around connectivity.
 
@@ -28,16 +30,36 @@ Production environment: `MONGODB_URI`, `MONGODB_DB=q_plat`, `OWNER_KEY`, `APP_OR
 
 Keep `index.html` as the sole frontend source. Sections are marked `THEME`, `LAYOUT`, `API CLIENT`, `CHART RENDERERS`, `INTERACTION`. Change CSS tokens in `:root`, named layout classes, or the canvas plot functions. Preserve API contracts and source/run/version labels. Do not reimport data or change the production project/alias when changing appearance. Run unit/build checks and relevant production E2E, compare `/` and `/download` SHA-256, and deploy the same Git-connected project.
 
-## Acceptance status
+## Acceptance evidence — 2026-11-27 UTC
 
-| Gate | Status |
+Application revision `e8259e1db5c3093cff90bfbafeee89b118238d27`, production deployment `dpl_51Jb7PcNPG3SAczq9AG3uqnXCNPh`. The 19 browser checks completed at approximately 13:38 UTC. Atlas verification record `84557c61-882a-4d54-a915-2b203ed857a3` contains 11 passing scalar checks at 13:28:33 UTC in `q_plat_test.verification`. Generated test rows were removed after verification; production snapshots were retained.
+
+| Required journey | Observed evidence |
 |---|---|
-| Numeric/DSL unit suite | 17 passing locally |
-| Dependency audit | 0 known vulnerabilities after pinned overrides |
-| Frontend/backend build | Passed initial build |
-| Atlas integration, cloud ingestion | Pending |
-| Production browser journeys 01–12 | Pending |
-| Artifact hash / public HEAD / production alias | Pending |
+| 01 Catalog | Atlas readback: UCI 750 rows / 30 assets / 25 weeks; ECB 23,052 / 6 / 3,842 sessions; synthetic 33,158 rows / 28 / 1,200 sessions. All three second imports returned the same checksum/count with `idempotent: true`. ECB browser research completed with zero ledger events and no account metrics. |
+| 02 Custom edge | Browser entered a new three-line range-adjusted momentum formula, changed its coefficient, validated, saved, forked and reloaded exact code. Independent cloud calculation checked cross-sectional ranks at tolerance 1e-12. |
+| 03 Data versus edge | Price → cross-section → asset detail, linked panels, five-session aggregation, horizon heatmap, ECB as-of context and universe change 30 → 5 passed through UI controls. Detail exposes source, intermediate variables, score/rank, target/order/filled quantity, fees, PnL and NAV. |
+| 04 Causality | Future UCI fields and negative lag rejected with source locations. Atlas future-only mutation changed future evaluator labels but preserved earlier scores, orders and NAV. |
+| 05 Arithmetic | 19 unit tests pass: Spearman 0.8, ideal gross 1.25%, ties/constant/missing policy, fee-only round trip -20, no fill on zero volume/missing open, causal participation and delayed-order netting. |
+| 06 Account | Real UCI ledger reconstructed independently into cash, holdings, marks, NAV and fees for all 25 sessions / 161 ledger entries, tolerance 1e-8. Cost change alters the account. |
+| 07 OOS | Synthetic run `4a90a944-9ef6-4de6-8b7d-d5be0835b46a`: 33,600 result points, 3 purged folds, both train candidates retained per fold, all 5 stress/null trials visible, holdout opening recorded. Weak and losing outcomes retained. |
+| 08 Reproduction | Browser exact rerun retained run hash `31c5a11abd3f477a563a9e98e489264dd1ed19140cd9836bcc580f9191853009` and identical metrics. A/B returns code/config differences and first differing date. Test namespace old snapshot still reproduces after a new ready snapshot exists. |
+| 09 Operations | Accepted UCI job survived immediate tab closure. Injected provider-error probe `7158045e-3bbb-4e8c-ba1b-1e424ecde61b` recovered via Workflow retry. Probe `c8073ae8-5210-48ce-9cba-f7dd27e5cc04` cancelled; retry `8ab5d201-4c6e-45d7-a0ac-20ddd0317146` completed. Unique indexes prevent duplicate results/ledger and atomically bound each workspace to two active research jobs. |
+| 10 Isolation/storage | Two signed-in workspaces cannot read each other's edges/runs; anonymous private read returns 401. Browser local/session storage, IndexedDB, caches and service workers all counted zero after research. Data responses are no-store. Public source/history scan found no credential patterns or data blobs. |
+| 11 Artifact/UI | Production/download/local-source SHA-256 identical; Chromium file preview and 390px viewport passed, with no horizontal overflow or browser JS errors. Original inline Canvas charts; no CDN renderer or embedded dataset. |
+| 12 Release | Unauthenticated GitHub API/source access verified public `dakiemdarktharr/q_plat`. Vercel READY production alias `q-plat.vercel.app` serves the exact commit in `/api?op=health`; Atlas ping/readback passes. No error/fatal runtime logs during the completed E2E window. |
+
+HTML SHA-256: `9c7f8777bfba467f6eb2af432c71b37982aec14be16f30ccf866a9180db0fc2c`. Later documentation/test-only commits keep this application artifact unchanged. `node scripts/release-check.mjs --wait` verifies **current HEAD** against the actual deployed commit and public source, not a predicted URL. [Checks](https://github.com/dakiemdarktharr/q_plat/actions/workflows/checks.yml) runs unit/build/audit and production release checks; **Run workflow** also executes the full browser journey in GitHub's cloud without uploading data artifacts.
+
+| Snapshot | Normalized SHA-256 |
+|---|---|
+| `uci-0353fe3533bfe8a0075e` | `0353fe3533bfe8a0075e193652138e0adeee941a34a224e4d08170b8ac4ea49e` |
+| `ecb-1244eb1206aff6e3e00e` | `1244eb1206aff6e3e00eba65fdee21f1fb29ac6aa4e40f76de495dbf5628fc40` |
+| `synthetic-90d3f9e499f9ce1ee164` | `90d3f9e499f9ce1ee16465b85ff59eb1f1609549b53fdd5a075f00fba6d8e1e6` |
+
+Infrastructure uses the existing Atlas **M0/free** `andiwonder` cluster and Vercel **Hobby** project. No paid upgrade, static egress, or paid dataset was enabled. The existing Atlas network allowlist was reused without broadening it. The app identity has only readWrite on `q_plat` and `q_plat_test`; credentials remain server-side. On free-tier throughput a full panel can take several minutes, with progress persisted after each batch. Chart windows are bounded to 350 points and 50 table rows; metrics use original observations. Zoom narrows the fill-ledger window (up to 300 events per asset request).
+
+For operator-only checks, `node scripts/admin.mjs verify` runs real Atlas integration tests in cloud; `import uci|ecb|synthetic`, `jobs`, `probe provider-error|cancel`, `cancel ID`, and `retry ID` operate on durable jobs. Supply `OWNER_KEY` through a secure process environment. The optional Windows helper reads an ignored DPAPI-protected key; it never prints credentials. No operator key is needed for the normal researcher UI or public CI smoke test.
 
 No HAR, trace, screenshot containing market rows, database dump, or market payload artifact is permitted. Browser storage is checked by names/counts only. Test evidence is scalar assertions and hashes.
 
