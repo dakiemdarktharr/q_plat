@@ -1,5 +1,5 @@
 {
   "framework": "nextjs",
-  "regions": ["iad1"],
+  "regions": ["sin1"],
   "functions": { "app/api/route.js": { "maxDuration": 60 } }
 }
