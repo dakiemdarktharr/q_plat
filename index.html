@@ -69,7 +69,7 @@ score = rank(mom) - 0.25 * rank(risk)</textarea>
 <div class="tooltip" id="tooltip" hidden></div>
 <script>
 // API CLIENT — productionOrigin is set once after the actual alias is verified.
-const productionOrigin = '__PRODUCTION_ORIGIN__';
+const productionOrigin = 'https://q-plat.vercel.app';
 const local = location.protocol === 'file:';
 const base = local ? productionOrigin : location.origin;
 const $ = id => document.getElementById(id);
