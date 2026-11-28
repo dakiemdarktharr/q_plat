@@ -47,6 +47,10 @@ const waitBatch = async (id) => {
         new Set(job.summary.panels.map((panel) => panel.dataset)).size,
         6,
       );
+      assert.ok(
+        job.summary.panels.every((panel) => /^wiki_sp500_\d{3}$/.test(panel.dataset)),
+        "The six-panel alpha run must use six newly screened WIKI cohorts.",
+      );
       return job;
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -218,6 +222,7 @@ try {
       catalog.versions
         .filter(
           (version) =>
+            /^wiki_sp500_\d{3}$/.test(version.dataset) &&
             version.meta.fields.includes("high") &&
             version.meta.fields.includes("low"),
         )
@@ -226,10 +231,9 @@ try {
   ];
   assert.ok(
     compatible.length >= 6,
-    "Need six OHLC datasets for the DSL fixture.",
+    "Need six ready, distinct screened WIKI cohorts for the DSL fixture.",
   );
-  const firstCompatible =
-    compatible.find((version) => version.dataset === "uci") || compatible[0];
+  const firstCompatible = compatible[0];
   await page.locator("#dataset").selectOption(firstCompatible._id);
   await page.waitForFunction(
     (id) =>
