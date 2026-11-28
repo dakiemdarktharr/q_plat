@@ -15,6 +15,7 @@ const originalFetch = globalThis.fetch;
 let captured;
 let capturedRequests = [];
 let pagedRows = null;
+let responseTooLargeAbove = null;
 globalThis.fetch = async (url, options) => {
   captured = { url: String(url), options, request: EJSON.parse(options.body) };
   capturedRequests.push(captured.request);
@@ -23,6 +24,18 @@ globalThis.fetch = async (url, options) => {
   const signature = options.headers["x-qtpatuti-signature"];
   const digest = createHash("sha256").update(options.body).digest("hex");
   assert.ok(verify(null, Buffer.from(`${timestamp}.${nonce}.${digest}`), keys.publicKey, Buffer.from(signature, "base64url")));
+  if (
+    responseTooLargeAbove &&
+    captured.request.collection === "result_chunks" &&
+    captured.request.limit > responseTooLargeAbove
+  )
+    return new Response(
+      EJSON.stringify(
+        { ok: false, error: "MongoDB response is too large.", status: 413 },
+        { relaxed: false },
+      ),
+      { status: 413, headers: { "content-type": "application/ejson" } },
+    );
   const result =
     captured.request.operation === "countDocuments"
       ? 0
@@ -60,6 +73,28 @@ test("database relay pages large result sets below the response cap", async () =
     );
   } finally {
     pagedRows = null;
+  }
+});
+
+test("database relay learns a smaller page size for large result chunks", async () => {
+  capturedRequests = [];
+  pagedRows = Array.from({ length: 145 }, (_, id) => ({ id }));
+  responseTooLargeAbove = 16;
+  try {
+    const rows = await (await db())
+      .collection("result_chunks")
+      .find({ run: "fixture" })
+      .limit(145)
+      .toArray();
+    assert.equal(rows.length, 145);
+    assert.deepEqual(
+      capturedRequests.slice(0, 3).map(({ skip, limit }) => [skip, limit]),
+      [[0, 64], [0, 32], [0, 16]],
+    );
+    assert.equal(capturedRequests.at(-1).skip, 144);
+  } finally {
+    pagedRows = null;
+    responseTooLargeAbove = null;
   }
 });
 
