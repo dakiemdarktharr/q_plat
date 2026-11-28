@@ -87,7 +87,13 @@ async function handle(request) {
         await d.command({ ping: 1 });
         database = "connected";
       } catch {
-        database = process.env.MONGODB_URI ? "unavailable" : "unconfigured";
+        database =
+          process.env.MONGODB_RELAY_URL ||
+          process.env.MONGODB_URI ||
+          process.env.MONGODB_CORE_URI ||
+          process.env.MONGODB_DATA_URI
+            ? "unavailable"
+            : "unconfigured";
       }
       return json(
         {

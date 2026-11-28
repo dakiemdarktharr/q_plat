@@ -31,6 +31,7 @@ const OPERATIONS = new Set([
   "findOne",
   "findOneAndUpdate",
   "insertOne",
+  "ping",
   "updateMany",
   "updateOne",
 ]);
@@ -144,6 +145,7 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
     const { uri } = mongoTarget(database, collectionName, env);
     const selected = await clientFor(uri);
     const collection = selected.db(database).collection(collectionName);
+    if (operation === "ping") return selected.db(database).command({ ping: 1 });
     if (operation === "find") {
       let cursor = collection.find(request.filter || {}, request.options || {});
       if (request.sort) cursor = cursor.sort(request.sort);

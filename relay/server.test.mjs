@@ -37,6 +37,7 @@ class FakeClient {
   }
   db(name) {
     return {
+      command: async ({ ping }) => ({ ok: ping === 1 ? 1 : 0 }),
       collection: (collection) => ({
         findOne: async () =>
           collection === "relay_usage" ? { bytes: storedUsage } : { name, collection },
@@ -76,6 +77,22 @@ test("health endpoint does not expose Atlas configuration", async () => {
   const response = await fetch(`${base}/healthz`);
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true });
+});
+
+test("RPC allows a signed health ping through the core database only", async () => {
+  const signed = signedRequest({
+    database: "q_plat",
+    collection: "workspaces",
+    operation: "ping",
+    args: [],
+  });
+  const response = await fetch(`${base}/rpc`, {
+    method: "POST",
+    headers: signed.headers,
+    body: signed.body,
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(EJSON.parse(await response.text()).result, { ok: 1 });
 });
 
 test("RPC requires a fresh signature from the Vercel private key", async () => {

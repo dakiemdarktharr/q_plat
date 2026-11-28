@@ -20,7 +20,7 @@ globalThis.fetch = async (url, options) => {
   const signature = options.headers["x-qtpatuti-signature"];
   const digest = createHash("sha256").update(options.body).digest("hex");
   assert.ok(verify(null, Buffer.from(`${timestamp}.${nonce}.${digest}`), keys.publicKey, Buffer.from(signature, "base64url")));
-  const result = captured.request.operation === "countDocuments" ? 0 : [
+  const result = captured.request.operation === "countDocuments" ? 0 : captured.request.operation === "ping" ? { ok: 1 } : [
     { date: new Date("2021-01-04T00:00:00Z"), close: 12.5 },
   ];
   return new Response(
@@ -60,4 +60,12 @@ test("database relay exposes only the supported collection operations", async ()
   assert.equal(await database.collection("jobs").countDocuments({ status: "queued" }), 0);
   assert.equal(captured.request.operation, "countDocuments");
   assert.equal(database.collection("jobs").drop, undefined);
+});
+
+test("database relay routes the health ping to Atlas", async () => {
+  const database = await db();
+  assert.deepEqual(await database.command({ ping: 1 }), { ok: 1 });
+  assert.equal(captured.request.operation, "ping");
+  assert.equal(captured.request.collection, "workspaces");
+  assert.throws(() => database.command({ dropDatabase: 1 }));
 });
