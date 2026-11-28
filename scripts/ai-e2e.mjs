@@ -34,18 +34,42 @@ try {
   assert.equal(await page.title(), "qtpatuti");
   assert.equal(await page.locator("#workspaceDialog").isVisible(), false);
   const accepted = page.waitForResponse(
-    (r) => r.url().includes("op=run") && r.request().method() === "POST",
+    (r) => r.url().includes("op=runBatch") && r.request().method() === "POST",
   );
   await page.locator("#run").click();
   const first = await accepted;
   assert.equal(first.status(), 202);
-  const guestJob = (await first.json()).job;
+  const guestBatch = (await first.json()).job;
   await page.waitForFunction(() => document.querySelector("#run").disabled);
+  let guestBatchJob;
+  for (let i = 0; i < 900; i++) {
+    const response = await context.request.get(
+      base + "/api?op=jobs&id=" + encodeURIComponent(guestBatch),
+    );
+    guestBatchJob = (await response.json()).jobs[0];
+    assert.ok(guestBatchJob);
+    assert.ok(
+      !["failed", "cancelled"].includes(guestBatchJob.status),
+      guestBatchJob.error,
+    );
+    if (guestBatchJob.status === "completed") break;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  assert.equal(guestBatchJob.status, "completed");
+  assert.equal(guestBatchJob.summary.panels.length, 6);
+  const guestRun = guestBatchJob.summary.panels[0].runId;
   await page.waitForFunction(
-    (id) =>
-      document.querySelector("#runLabel").textContent.includes(id.slice(0, 8)),
-    guestJob,
-    { timeout: 180000 },
+    () =>
+      document.querySelectorAll("#batchGrid .batch-panel").length === 6 &&
+      document.querySelectorAll("#batchGrid .batch-panel svg").length === 6,
+    {},
+    { timeout: 120000 },
+  );
+  await page.locator(`[data-open-batch-run="${guestRun}"]`).click();
+  await page.waitForFunction(
+    (id) => document.querySelector("#runLabel").textContent.includes(id),
+    guestRun.slice(0, 8),
+    { timeout: 60000 },
   );
   assert.ok(await page.locator("#priceChart").isVisible());
   assert.ok(await page.locator("#scoreChart").isVisible());
@@ -69,7 +93,7 @@ try {
   assert.equal(claimed.guest, false);
   assert.equal(
     (
-      await context.request.get(base + "/api?op=report&run=" + guestJob)
+      await context.request.get(base + "/api?op=report&run=" + guestRun)
     ).status(),
     200,
   );
@@ -143,7 +167,10 @@ try {
     }),
   );
   const tools = await client.listTools();
-  assert.equal(tools.tools.length, 15);
+  assert.equal(tools.tools.length, 16);
+  assert.ok(
+    tools.tools.some((tool) => tool.name === "run_research_across_datasets"),
+  );
   assert.ok(
     (
       await client.readResource({ uri: "qtpatuti://dsl" })
@@ -202,7 +229,7 @@ try {
   const difference = responseData(
     await client.callTool({
       name: "compare_runs",
-      arguments: { a: guestJob, b: report._id },
+      arguments: { a: guestRun, b: report._id },
     }),
   );
   assert.ok(difference.codeDiff.length);
@@ -225,7 +252,7 @@ try {
       stderr: "pipe",
     }),
   );
-  assert.equal((await stdio.listTools()).tools.length, 15);
+  assert.equal((await stdio.listTools()).tools.length, 16);
   assert.ok(
     responseData(
       await stdio.callTool({ name: "list_runs", arguments: {} }),

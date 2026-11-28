@@ -61,6 +61,30 @@ const waitJob = async (id) => {
   }
   throw new Error("Job timeout " + id);
 };
+const waitBatch = async (id) => {
+  let previous = 0;
+  for (let iteration = 0; iteration < 900; iteration++) {
+    const job = (await api("jobs", null, { id })).jobs[0];
+    assert.ok(job);
+    assert.ok(!["failed", "cancelled"].includes(job.status), job.error);
+    assert.ok(job.progress.percent >= previous);
+    previous = job.progress.percent;
+    if (job.status === "completed") {
+      assert.equal(previous, 100);
+      assert.equal(job.summary.panels.length, 6);
+      assert.ok(
+        job.summary.panels.every((panel) => panel.status === "completed"),
+      );
+      assert.equal(
+        new Set(job.summary.panels.map((panel) => panel.dataset)).size,
+        6,
+      );
+      return job;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error("Batch timeout " + id);
+};
 const accepted = (op) =>
   page.waitForResponse(
     (r) => r.url().includes("op=" + op) && r.request().method() === "POST",
@@ -86,27 +110,73 @@ try {
   await page.getByText("Execution, risk & universe", { exact: true }).click();
   for (const [key, value] of Object.entries(config))
     await page.locator("#" + key).fill(String(value));
-  await page.locator("#robustness").check();
-  const response = accepted("run");
+  await page.locator("#robustness").uncheck();
+  const response = accepted("runBatch");
   await page.locator("#run").click();
   const id = (await (await response).json()).job;
   assert.ok(id);
-  await page.locator("#jobProgress").waitFor({ state: "visible" });
+  await page.locator("#batchBoard").waitFor({ state: "visible" });
+  await page.waitForFunction(
+    () => document.querySelectorAll("#batchGrid .batch-panel").length === 6,
+  );
   assert.ok(await page.locator("#run").isDisabled());
   assert.ok(
-    Number(await page.locator("#jobMeter").getAttribute("value")) < 100,
+    Number(await page.locator("#batchMeter").getAttribute("value")) < 100,
   );
   await page.reload();
   await ready();
-  await page
-    .locator("#jobProgress")
-    .waitFor({ state: "visible", timeout: 30000 });
-  pass("live progress resumes after reload without starting another job", {
-    run: id,
-  });
+  const active = (await api("jobs", null, { id })).jobs[0];
+  if (["queued", "running", "retrying", "committing"].includes(active.status)) {
+    await page
+      .locator("#batchBoard")
+      .waitFor({ state: "visible", timeout: 30000 });
+  } else {
+    await page.goto(base + "/#history");
+    await ready();
+    await page.locator(`[data-watch-batch="${id}"]`).click();
+  }
+  const completedBatch = await waitBatch(id);
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll(
+        '#batchGrid .batch-panel[data-status="completed"]',
+      ).length === 6 &&
+      document.querySelectorAll("#batchGrid .batch-panel svg").length === 6 &&
+      document.querySelector("#batchMeter").value === 100,
+    {},
+    { timeout: 120000 },
+  );
+  pass(
+    "six dataset monitor resumes after reload with per-dataset progress and charts",
+    {
+      batch: id,
+      panels: completedBatch.summary.panels.map(({ dataset, runId }) => ({
+        dataset,
+        runId,
+      })),
+    },
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.ok(await page.locator("#batchMeter").isVisible());
+  assert.equal(
+    await page
+      .locator("#batchGrid")
+      .evaluate(
+        (element) =>
+          getComputedStyle(element).gridTemplateColumns.split(" ").length,
+      ),
+    2,
+  );
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  pass("completed six-panel monitor fits desktop and mobile");
   let reference;
   for (let iteration = 0; iteration < 3; iteration++) {
-    const run = iteration === 0 ? id : (await api("run", body)).job;
+    const run = (await api("run", body)).job;
     const measured = await waitJob(run);
     const report = await api("report", null, { run });
     assert.equal(
@@ -131,48 +201,23 @@ try {
       "same equity edge and robustness benchmark " + (iteration + 1),
       measurements.at(-1),
     );
-    if (iteration === 0) {
-      await page.waitForFunction(
-        (id) =>
-          document
-            .querySelector("#runLabel")
-            .textContent.includes(id.slice(0, 8)),
-        id,
-        { timeout: 60000 },
-      );
-      assert.equal(await page.locator("#jobPercent").innerText(), "100%");
-      assert.equal(await page.locator("#jobPhase").innerText(), "Completed");
-      assert.ok(await page.locator("#priceChart").isVisible());
-      assert.ok(await page.locator("#scoreChart").isVisible());
-      await page.setViewportSize({ width: 390, height: 844 });
-      assert.ok(await page.locator("#jobMeter").isVisible());
-      assert.ok(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth + 1,
-        ),
-      );
-      await page.setViewportSize({ width: 1440, height: 1000 });
-      pass("completed progress and result visible on desktop and mobile");
-    }
   }
-  // Exercise the actual editor Cancel control before the worker commits.
-  const next = accepted("run");
-  await page.locator("#run").click();
-  const cancelId = (await (await next).json()).job;
-  const cancelled = accepted("cancel");
-  await page.locator("#cancelJob").click();
-  await cancelled;
+  const cancelId = (await api("run", body)).job;
+  await page.goto(base + "/#history");
+  await ready();
+  await page.locator(`[data-cancel="${cancelId}"]`).waitFor({ timeout: 30000 });
+  await page.locator(`[data-cancel="${cancelId}"]`).click();
   await page.waitForFunction(
-    () => document.querySelector("#jobPhase").textContent === "Cancelled",
-    null,
+    async (id) => {
+      const response = await fetch("/api?op=jobs&id=" + encodeURIComponent(id));
+      return (await response.json()).jobs[0]?.status === "cancelled";
+    },
+    cancelId,
     { timeout: 30000 },
   );
   const stopped = (await api("jobs", null, { id: cancelId })).jobs[0];
   assert.equal(stopped.status, "cancelled");
   assert.ok(stopped.progress.percent < 100);
-  assert.ok(await page.locator("#run").isEnabled());
-  await page.goto(base + "/#history");
-  await ready();
   await page.locator(`[data-retry="${cancelId}"]`).waitFor({ timeout: 30000 });
   const retry = accepted("retry");
   await page.locator(`[data-retry="${cancelId}"]`).click();

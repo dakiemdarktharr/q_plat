@@ -14,12 +14,12 @@ New runs use `result_chunks`; a storage adapter keeps existing `run_series` / `l
 
 Frozen snapshot `wiki_technology-37624ed02d0eeff762fa`, six stocks, 1,508 sessions, 20-day risk-adjusted momentum, 10 bps fees, 5 bps slippage, rebalance every five sessions, robustness enabled. Run hash: `67c6982e38ac64dc30dd884bf9d083a34584ec84253505efe16ffeed07a74dd4`.
 
-| Measurement | Accepted to completed | Worker invocations | Result documents |
-| --- | ---: | ---: | ---: |
-| Previous single run | 63.117 s | 3 | 12,160 |
-| New sequential run 1 | 7.740 s | 1 | 101 |
-| New sequential run 2 | 4.275 s | 1 | 101 |
-| New sequential run 3 | 3.887 s | 1 | 101 |
+| Measurement          | Accepted to completed | Worker invocations | Result documents |
+| -------------------- | --------------------: | -----------------: | ---------------: |
+| Previous single run  |              63.117 s |                  3 |           12,160 |
+| New sequential run 1 |               7.740 s |                  1 |              101 |
+| New sequential run 2 |               4.275 s |                  1 |              101 |
+| New sequential run 3 |               3.887 s |                  1 |              101 |
 
 These are observed production samples, not an SLA or a controlled cold-start study. No other acceptance jobs ran during the three new measurements. Their median is 4.275 s, 93.2% below the previous single-run sample. The first includes more queue/dispatch time. Shared Atlas/Vercel load and larger research panels can change durations.
 
@@ -31,19 +31,21 @@ A second sequential batch after the cancellation UI fix measured 8.382 / 4.693 /
 
 The editor and Runs show a native progress bar, current stage, percentage and elapsed time. The server persists progress and the browser polls every second while visible, every four seconds while hidden. Reload reconnects to the active job in the current workspace. Network failures retry polling. Workspace changes invalidate previous polling callbacks.
 
-| Stage | Progress |
-| --- | ---: |
-| Queued | 0% |
-| Loading data | 3% |
-| Calculating edge | 15% |
-| Testing robustness / preparing results | 35% |
-| Saving results | 55–95%, based on confirmed chunks |
-| Verifying results | 97% |
-| Verified and committed | 100% |
+| Stage                                  |                          Progress |
+| -------------------------------------- | --------------------------------: |
+| Queued                                 |                                0% |
+| Loading data                           |                                3% |
+| Calculating edge                       |                               15% |
+| Testing robustness / preparing results |                               35% |
+| Saving results                         | 55–95%, based on confirmed chunks |
+| Verifying results                      |                               97% |
+| Verified and committed                 |                              100% |
 
 These percentages describe weighted work stages, not elapsed-time interpolation or a completion-time forecast. They never count upward because time passed. Within a job, retry cannot reduce the persisted percentage. A manual retry creates a new job beginning at zero. Cancelled/failed jobs never reach 100%; elapsed time freezes at the terminal timestamp. Legacy jobs without a measurable checkpoint use indeterminate progress.
 
 REST and MCP `job_status` expose the identical `progress` object. `pipeline.timings` in the completed report records loading, calculation, robustness, preparation, writes and verification for diagnosing future regressions.
+
+The website's six-dataset run uses a single durable job slot and executes one selected snapshot at a time. Every panel has its own status/progress and publishes a normal report only after chunk readback verification. The parent job's progress includes all six panel states and reaches 100 only after all six are ready. This bounds worker memory to one dataset panel and avoids six simultaneous writes to the free Atlas cluster. Panels can be opened individually from the board or restored from Runs.
 
 ## Reproduction
 

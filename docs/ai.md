@@ -19,7 +19,7 @@ Use a client that supports Streamable HTTP with custom headers:
 }
 ```
 
-Client configuration syntax varies. This server uses personal bearer tokens; it does **not** offer OAuth discovery or dynamic registration. A client requiring OAuth should use the stdio bridge instead. Protocol version: `2025-11-25`; stateless JSON responses, no SSE stream, GET returns 405. Send `Accept: application/json, text/event-stream` and `Content-Type: application/json`. Origin is checked when present. No session ID is required. Resources expose `qtpatuti://dsl`; `tools/list` describes the 15 operations.
+Client configuration syntax varies. This server uses personal bearer tokens; it does **not** offer OAuth discovery or dynamic registration. A client requiring OAuth should use the stdio bridge instead. Protocol version: `2025-11-25`; stateless JSON responses, no SSE stream, GET returns 405. Send `Accept: application/json, text/event-stream` and `Content-Type: application/json`. Origin is checked when present. No session ID is required. Resources expose `qtpatuti://dsl`; `tools/list` describes 16 operations.
 
 ## stdio bridge
 
@@ -43,13 +43,17 @@ Keep the token in the client's secret/environment settings, outside version cont
 
 [OpenAPI 3.1 schema](https://q-plat.vercel.app/openapi.json) describes `POST /api/v1/{tool}`. Every operation takes a JSON body; read tools use `{}` when no arguments are needed. Set the same bearer header. Responses are `no-store`. A research job returns HTTP 202 with a job ID; poll `job_status` until completion before reading `read_report`. Results appear in **Runs** on the website after Refresh; saved code appears under **Saved edges & version diff**.
 
-`job_status({id})` returns `jobs[0].progress` with `percent`, `stage`, `elapsedSeconds` and, during persistence, `completed`/`total` chunk counts. Poll every 1–3 seconds. Percentages are weighted work stages, not predicted remaining time; 100 means the run is verified and committed. Cancelled/failed jobs stay below 100. An older job with no measurable checkpoint may return `percent: null`. The website uses the same contract and refreshes Runs automatically while jobs are active.
+`run_research_across_datasets` accepts one edge, six distinct catalog dataset IDs, and the usual research settings. It returns one durable job ID. The cloud workflow runs those panels sequentially under one active-job slot, stores each verified report as a normal run, and reports per-dataset status in `job_status({id}).jobs[0].progress.datasets`. `job_status({id})` also returns `progress.percent`, `stage`, `elapsedSeconds` and, during persistence, `completed`/`total` chunk counts. Poll every 1–3 seconds. Percentages are weighted work stages, not predicted remaining time; 100 means all six panels are verified and committed. Cancelled/failed jobs stay below 100. An older job with no measurable checkpoint may return `percent: null`. The website uses the same contract and displays the six result panels.
 
 ```javascript
-const response = await fetch('https://q-plat.vercel.app/api/v1/catalog', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.QTPATUTI_TOKEN}` },
-  body: '{}', cache: 'no-store'
+const response = await fetch("https://q-plat.vercel.app/api/v1/catalog", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${process.env.QTPATUTI_TOKEN}`,
+  },
+  body: "{}",
+  cache: "no-store",
 });
 const catalog = await response.json(); // keep in RAM
 ```

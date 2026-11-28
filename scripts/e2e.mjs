@@ -6,10 +6,117 @@ import { createHash, randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 const base = process.env.BASE_URL || "https://q-plat.vercel.app",
   checks = [],
-  minSnapshots = 3;
+  minSnapshots = 6;
 const pass = (name, scalars = {}) => {
   checks.push({ name, ...scalars });
   console.log("PASS", name, JSON.stringify(scalars));
+};
+const waitBatch = async (id) => {
+  let previous = 0;
+  for (let attempt = 0; attempt < 900; attempt++) {
+    const response = await context.request.get(
+      base + "/api?op=jobs&id=" + encodeURIComponent(id),
+    );
+    const job = (await response.json()).jobs[0];
+    assert.ok(job, "Batch job disappeared.");
+    assert.ok(!["failed", "cancelled"].includes(job.status), job.error);
+    assert.ok(job.progress.percent >= previous);
+    previous = job.progress.percent;
+    if (job.status === "completed") {
+      assert.equal(previous, 100);
+      assert.equal(job.summary.panels.length, 6);
+      assert.ok(
+        job.summary.panels.every((panel) => panel.status === "completed"),
+      );
+      assert.equal(
+        new Set(job.summary.panels.map((panel) => panel.dataset)).size,
+        6,
+      );
+      return job;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error("Six-dataset job timed out " + id);
+};
+const openBatchPanel = async (job, datasetVersion = null) => {
+  const panel =
+    job.summary.panels.find((item) => item.datasetVersion === datasetVersion) ||
+    job.summary.panels[0];
+  const button = page.locator(`[data-open-batch-run="${panel.runId}"]`);
+  await button.waitFor({ state: "visible", timeout: 120000 });
+  await button.click();
+  await page.waitForFunction(
+    (id) => document.querySelector("#runLabel").textContent.includes(id),
+    panel.runId.slice(0, 8),
+    { timeout: 60000 },
+  );
+  return panel.runId;
+};
+const waitSingle = async (id) => {
+  for (let attempt = 0; attempt < 300; attempt++) {
+    const response = await context.request.get(
+      base + "/api?op=jobs&id=" + encodeURIComponent(id),
+    );
+    const job = (await response.json()).jobs[0];
+    assert.ok(job, "Research job disappeared.");
+    assert.ok(!["failed", "cancelled"].includes(job.status), job.error);
+    if (job.status === "completed") return job;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error("Research job timed out " + id);
+};
+const submitSingleAndOpen = async () => {
+  const body = await page.evaluate(() => ({
+    code: document.querySelector("#code").value,
+    datasetVersion: document.querySelector("#dataset").value,
+    config: Object.fromEntries(
+      [
+        "capital",
+        "feeBps",
+        "slippageBps",
+        "topK",
+        "rebalance",
+        "maxWeight",
+        "lot",
+        "maxParticipation",
+        "delay",
+        "maxHolding",
+        "entry",
+        "exit",
+        "horizon",
+        "riskFree",
+        "seed",
+      ].map((key) => [key, Number(document.querySelector("#" + key).value)]),
+    ),
+    universe: document
+      .querySelector("#universe")
+      .value.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+    robustness: document.querySelector("#robustness").checked,
+  }));
+  const accepted = await context.request.post(base + "/api?op=run", {
+    data: body,
+  });
+  assert.equal(accepted.status(), 202);
+  const id = (await accepted.json()).job;
+  await waitSingle(id);
+  const reportResponse = await context.request.get(
+    base + "/api?op=report&run=" + encodeURIComponent(id),
+  );
+  assert.equal(reportResponse.status(), 200);
+  const report = await reportResponse.json();
+  await page.locator('[data-view="history"]').click();
+  await page.locator("#refreshHistory").click();
+  const button = page.locator(`[data-open-run="${id}"]`);
+  await button.waitFor({ state: "visible", timeout: 30000 });
+  await button.click();
+  await page.waitForFunction(
+    (runId) => document.querySelector("#runLabel").textContent.includes(runId),
+    id.slice(0, 8),
+    { timeout: 60000 },
+  );
+  return report;
 };
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({
@@ -43,10 +150,52 @@ try {
     minSnapshots,
     { timeout: 60000 },
   );
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll("#batchSelectors .batch-dataset").length === 6,
+    {},
+    { timeout: 60000 },
+  );
+  assert.ok(await page.locator("#run").isEnabled());
   const count = await page.locator("#dataset option").count();
   assert.ok(count >= minSnapshots);
   assert.match(await page.locator("#dbStatus").textContent(), /connected/);
   pass("01 catalog loaded from Atlas", { snapshots: count });
+  const catalog = await (
+    await context.request.get(base + "/api?op=catalog")
+  ).json();
+  const compatible = [
+    ...new Map(
+      catalog.versions
+        .filter(
+          (version) =>
+            version.meta.fields.includes("high") &&
+            version.meta.fields.includes("low"),
+        )
+        .map((version) => [version.dataset, version]),
+    ).values(),
+  ];
+  assert.ok(
+    compatible.length >= 6,
+    "Need six OHLC datasets for the DSL fixture.",
+  );
+  const firstCompatible =
+    compatible.find((version) => version.dataset === "uci") || compatible[0];
+  await page.locator("#dataset").selectOption(firstCompatible._id);
+  await page.waitForFunction(
+    (id) =>
+      document.querySelector('#batchSelectors [data-slot="0"]').value === id,
+    firstCompatible._id,
+  );
+  let slot = 1;
+  for (const version of compatible) {
+    if (version._id === firstCompatible._id || slot >= 6) continue;
+    await page
+      .locator(`#batchSelectors [data-slot="${slot}"]`)
+      .selectOption(version._id);
+    slot++;
+  }
+  assert.equal(slot, 6);
   await page.locator("#workspaceButton").click();
   const name = "qa_" + Date.now(),
     password = randomBytes(24).toString("base64url");
@@ -106,7 +255,12 @@ try {
   await page.locator("#code").fill(code);
   await page.locator("#testSettings > summary").click();
   await page.locator("#robustness").uncheck();
+  const batchAccepted = page.waitForResponse(
+    (r) => r.url().includes("op=runBatch") && r.request().method() === "POST",
+  );
   await page.locator("#run").click();
+  const batchId = (await (await batchAccepted).json()).job;
+  assert.ok(batchId);
   await page.waitForFunction(
     () => document.querySelector("#jobStatus").textContent.includes("accepted"),
     {},
@@ -123,20 +277,27 @@ try {
     {},
     { timeout: 30000 },
   );
-  let openButton = page.locator("[data-open-run]");
-  for (let i = 0; i < 40 && (await openButton.count()) === 0; i++) {
-    await new Promise((r) => setTimeout(r, 2500));
-    await page.locator("#refreshHistory").click();
-  }
-  assert.ok((await openButton.count()) > 0, "Job did not survive disconnect.");
-  const originalRun = await openButton.first().getAttribute("data-open-run");
-  await openButton.first().click();
+  const firstBatch = await waitBatch(batchId);
+  await page.locator("#refreshHistory").click();
+  await page.locator(`[data-watch-batch="${batchId}"]`).click();
   await page.waitForFunction(
-    () => document.querySelector("#runLabel").textContent.startsWith("Run "),
+    () =>
+      document.querySelectorAll("#batchGrid .batch-panel").length === 6 &&
+      document.querySelectorAll(
+        '#batchGrid .batch-panel[data-status="completed"]',
+      ).length === 6 &&
+      document.querySelectorAll("#batchGrid .batch-panel svg").length === 6,
     {},
-    { timeout: 30000 },
+    { timeout: 120000 },
   );
-  pass("09 accepted cloud job survives tab close");
+  const originalRun = await openBatchPanel(firstBatch);
+  pass(
+    "09 six dataset monitor survives tab close and renders six edge/data plots",
+    {
+      batch: batchId,
+      runs: firstBatch.summary.panels.map((panel) => panel.runId),
+    },
+  );
   assert.match(await page.locator("#kpis").innerText(), /Mean rank IC/);
   await page.locator("#priceChart").click({ position: { x: 220, y: 80 } });
   await page.waitForFunction(
@@ -268,29 +429,9 @@ try {
   );
   await page.locator("#testSettings > summary").click();
   await page.locator("#feeBps").fill("20");
-  const secondAccepted = page.waitForResponse(
-    (r) => r.url().includes("op=run") && r.request().method() === "POST",
-  );
-  await page.locator("#run").click();
-  const secondJob = (await (await secondAccepted).json()).job;
-  await page.waitForFunction(
-    () => document.querySelector("#jobStatus").textContent.includes("accepted"),
-    {},
-    { timeout: 30000 },
-  );
-  await page.waitForFunction(
-    () =>
-      document.querySelector("#jobStatus").textContent.includes("completed"),
-    {},
-    { timeout: 120000 },
-  );
+  const second = await submitSingleAndOpen();
+  const secondRun = second._id;
   pass("06 changed edge/cost account run completed");
-  await page.waitForFunction(
-    (id) =>
-      document.querySelector("#runLabel").textContent.includes(id.slice(0, 8)),
-    secondJob,
-    { timeout: 60000 },
-  );
   await page.locator('[data-view="history"]').click();
   await page.locator("#refreshHistory").click();
   await page.waitForFunction(
@@ -311,32 +452,12 @@ try {
   pass("08 A/B report and configuration diff");
   const compare = await (
     await context.request.get(
-      base + "/api?op=compare&a=" + originalRun + "&b=" + secondJob,
+      base + "/api?op=compare&a=" + originalRun + "&b=" + secondRun,
     )
   ).json();
   assert.ok(compare.firstDifferentDate);
   assert.ok(compare.codeDiff.length);
   assert.ok(compare.configDiff.some((x) => x.key === "feeBps"));
-  const submitAndWait = async () => {
-    const accepted = page.waitForResponse(
-      (r) => r.url().includes("op=run") && r.request().method() === "POST",
-    );
-    await page.locator("#run").click();
-    const response = await accepted;
-    assert.equal(response.status(), 202);
-    const id = (await response.json()).job;
-    await page.waitForFunction(
-      (id) =>
-        document
-          .querySelector("#runLabel")
-          .textContent.includes(id.slice(0, 8)),
-      id,
-      { timeout: 600000 },
-    );
-    return (
-      await context.request.get(base + "/api?op=report&run=" + id)
-    ).json();
-  };
   const exactAccepted = page.waitForResponse(
     (r) => r.url().includes("op=run") && r.request().method() === "POST",
   );
@@ -367,7 +488,7 @@ try {
     .filter({ hasText: "Execution, risk & universe" })
     .click();
   await page.locator("#universe").fill("AA,AXP,BA,BAC,CAT");
-  const subset = await submitAndWait();
+  const subset = await submitSingleAndOpen();
   assert.equal(subset.universe.length, 5);
   await page.waitForFunction(
     () => document.querySelectorAll("#crossTable tbody tr").length === 5,
@@ -387,7 +508,7 @@ try {
     .locator("#code")
     .fill("mom = returns(close, 12)\nscore = rank(mom)");
   await page.locator("#robustness").check();
-  const long = await submitAndWait();
+  const long = await submitSingleAndOpen();
   assert.equal(long.meta.reality, "Synthetic");
   assert.equal(long.counts.sessions, 1200);
   assert.equal(long.robustness.trials.length, 5);
@@ -423,7 +544,7 @@ try {
     .locator("#code")
     .fill("change = returns(close, 12)\nscore = -rank(change)");
   await page.locator("#robustness").uncheck();
-  const fx = await submitAndWait();
+  const fx = await submitSingleAndOpen();
   assert.equal(fx.metrics, null);
   assert.equal(fx.counts.ledger, 0);
   assert.ok(fx.diagnostic.sessions > 3000);

@@ -144,7 +144,7 @@ async function handle(request) {
           ],
         })
         .sort({ createdAt: -1 })
-        .limit(30)
+        .limit(100)
         .toArray();
       return json(
         {
@@ -338,7 +338,7 @@ async function handle(request) {
     await rateLimit(
       database,
       s.workspace + ":" + op,
-      ["run", "validate", "retry"].includes(op) ? 10 : 120,
+      ["run", "runBatch", "validate", "retry"].includes(op) ? 10 : 120,
     );
     if (op === "tokens") {
       if (s.auth === "token" || s.guest)
@@ -479,6 +479,86 @@ async function handle(request) {
         await database.collection("edge_versions").insertOne(record);
         return json(record, 201);
       }
+    }
+    if (op === "runBatch" && request.method === "POST") {
+      const b = await bodyOf(request),
+        ids = Array.isArray(b.datasets) ? [...new Set(b.datasets)] : [];
+      if (ids.length !== 6 || b.datasets.length !== 6)
+        throw httpError("Choose six different datasets.");
+      const versions = await Promise.all(
+        ids.map((id) => getVersion(database, id)),
+      );
+      if (new Set(versions.map((v) => v.dataset)).size !== 6)
+        throw httpError("Each panel must use a different dataset.");
+      const config = validateConfig(b.config);
+      for (const version of versions) parse(b.code, version.meta.fields);
+      const universe = Array.isArray(b.universe)
+        ? [...new Set(b.universe)]
+        : [];
+      if (versions.some((v) => universe.some((a) => !v.assets.includes(a))))
+        throw httpError(
+          "The selected universe must exist in all six datasets.",
+        );
+      if (b.expectedEngine && b.expectedEngine !== ENGINE_VERSION)
+        throw httpError("This edge expects a different engine revision.", 409);
+      const active = await database.collection("jobs").countDocuments({
+        workspace: s.workspace,
+        status: { $in: ["queued", "running", "retrying", "committing"] },
+      });
+      if (active >= 2) throw httpError("Two jobs are already active.", 429);
+      const id = randomUUID(),
+        datasets = versions.map((v) => ({
+          runId: randomUUID(),
+          datasetVersion: v._id,
+          name: v.meta.name || v.dataset,
+          dataset: v.dataset,
+        })),
+        job = {
+          _id: id,
+          workspace: s.workspace,
+          type: "research",
+          batch: true,
+          status: "queued",
+          createdAt: new Date().toISOString(),
+          datasets,
+          batchCheckpoint: 0,
+          code: b.code,
+          config,
+          universe,
+          edge: b.edge || null,
+          edgeVersion: b.edgeVersion || null,
+          robustness: b.robustness === true,
+        };
+      if (job.edge) {
+        const ev = await database.collection("edge_versions").findOne({
+          edge: job.edge,
+          version: job.edgeVersion,
+          workspace: s.workspace,
+        });
+        if (!ev || ev.code !== job.code)
+          throw httpError(
+            "Saved edge version does not match code. Save a new version first.",
+          );
+      }
+      await enqueue(database, job);
+      try {
+        const workflow = await start(researchWorkflow, [id]);
+        await database
+          .collection("jobs")
+          .updateOne({ _id: id }, { $set: { workflow: workflow.runId } });
+      } catch {
+        await database.collection("jobs").updateOne(
+          { _id: id },
+          {
+            $set: {
+              status: "failed",
+              error: "Dispatch failed; retry available.",
+            },
+          },
+        );
+        throw httpError("Cloud dispatcher unavailable.", 503);
+      }
+      return json({ job: id, datasets }, 202);
     }
     if (op === "run" && request.method === "POST") {
       const b = await bodyOf(request),
@@ -663,7 +743,17 @@ async function handle(request) {
         .collection("bars")
         .find(
           { version: v._id, asset, date: { $gte: from, $lte: to } },
-          { projection: { _id: 0, date: 1 } },
+          {
+            projection: {
+              _id: 0,
+              date: 1,
+              open: 1,
+              high: 1,
+              low: 1,
+              close: 1,
+              volume: 1,
+            },
+          },
         )
         .sort({ date: 1 })
         .limit(5000)

@@ -255,6 +255,180 @@
         gap: 16px;
         align-items: start;
       }
+      .batch-selectors {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin: 8px 0 12px;
+      }
+      .batch-selectors label {
+        min-width: 0;
+      }
+      .batch-selectors select {
+        font-size: 11px;
+      }
+      #batchBoard {
+        padding: 0 0 24px;
+      }
+      .batch-board-head {
+        display: grid;
+        grid-template-columns: 1fr auto auto auto;
+        align-items: center;
+        gap: 14px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .batch-board-head h2 {
+        margin: 0;
+      }
+      .batch-board-head code {
+        color: var(--accent);
+        font: 11px/1.5 var(--mono);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #batchMeter {
+        grid-column: 1/-1;
+        width: 100%;
+      }
+      .batch-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        border-top: 1px solid var(--line);
+      }
+      .batch-panel {
+        min-width: 0;
+        min-height: 220px;
+        padding: 12px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+      .batch-panel:nth-child(3n) {
+        border-right: 0;
+      }
+      .batch-panel-head,
+      .batch-panel-metrics {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .batch-panel-head h3 {
+        min-width: 0;
+        margin: 0;
+        overflow-wrap: anywhere;
+        font-size: 13px;
+      }
+      .batch-panel-status {
+        flex: 0 0 auto;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .batch-panel[data-status="completed"] .batch-panel-status {
+        color: var(--green);
+      }
+      .batch-panel[data-status="failed"],
+      .batch-panel[data-status="cancelled"] {
+        color: var(--red);
+      }
+      .batch-panel progress {
+        display: block;
+        width: 100%;
+        height: 3px;
+        margin: 9px 0 5px;
+      }
+      .batch-chart {
+        display: block;
+        width: 100%;
+        height: 98px;
+        overflow: visible;
+      }
+      .batch-chart path {
+        fill: none;
+        stroke-width: 1.6;
+        vector-effect: non-scaling-stroke;
+      }
+      .batch-chart .price-line {
+        stroke: #e8e5ef;
+      }
+      .batch-chart .score-line {
+        stroke: var(--purple);
+      }
+      .batch-chart-legend {
+        display: flex;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .batch-chart-legend span:first-child {
+        color: #e8e5ef;
+      }
+      .batch-chart-legend span:last-child {
+        color: var(--accent);
+      }
+      .batch-panel-metrics {
+        justify-content: flex-start;
+        gap: 18px;
+        padding-top: 8px;
+        border-top: 1px solid var(--line);
+        font-size: 11px;
+      }
+      .batch-panel-metrics span {
+        color: var(--muted);
+      }
+      .batch-panel-metrics .positive {
+        color: var(--green);
+      }
+      .batch-panel-metrics .negative {
+        color: var(--red);
+      }
+      .batch-panel button {
+        min-height: 30px;
+        padding: 5px 8px;
+        font-size: 11px;
+      }
+      body.batch-view-active #view-research .research-grid {
+        display: none;
+      }
+      body.batch-view-active .filters {
+        display: none;
+      }
+      @media (max-width: 700px) {
+        .batch-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .batch-panel:nth-child(3n) {
+          border-right: 1px solid var(--line);
+        }
+        .batch-panel:nth-child(2n) {
+          border-right: 0;
+        }
+      }
+      @media (max-width: 420px) {
+        .batch-board-head {
+          grid-template-columns: 1fr auto auto;
+          gap: 8px;
+        }
+        .batch-board-head code {
+          grid-column: 1/-1;
+          grid-row: 2;
+        }
+        .batch-panel {
+          min-height: 190px;
+          padding: 9px 7px;
+        }
+        .batch-panel-head h3 {
+          font-size: 11px;
+        }
+        .batch-chart {
+          height: 78px;
+        }
+        .batch-panel-metrics {
+          gap: 9px;
+          font-size: 10px;
+        }
+      }
       .editor {
         font: 12px/1.8 var(--mono);
         min-height: 195px;
@@ -1351,6 +1525,22 @@
           </button>
         </section>
         <section data-page="" id="view-research">
+          <section aria-label="Six dataset edge monitor" hidden id="batchBoard">
+            <div class="batch-board-head">
+              <h2>Edge × data</h2>
+              <b id="batchStatus">Queued</b>
+              <button id="cancelBatch">Cancel</button>
+              <button id="closeBatchBoard">Edge editor</button>
+              <code id="batchCode"></code>
+              <progress
+                aria-label="Six dataset research progress"
+                id="batchMeter"
+                max="100"
+                value="0"
+              ></progress>
+            </div>
+            <div class="batch-grid" id="batchGrid"></div>
+          </section>
           <div class="research-grid">
             <div class="stage">
               <div class="kpis" id="kpis">
@@ -1508,13 +1698,17 @@
 mom = close / lag(close, 4) - 1
 risk = ts_std(returns(close, 1), 4)
 score = rank(mom) - 0.25 * rank(risk)</textarea>
+                <details class="batch-setup" id="batchSetup" open>
+                  <summary>Choose six datasets</summary>
+                  <div class="batch-selectors" id="batchSelectors"></div>
+                </details>
                 <button
                   class="primary"
                   id="run"
                   style="width: 100%"
                   title="Run edge, Ctrl Enter"
                 >
-                  Run edge
+                  Run on 6 datasets
                 </button>
                 <div class="sr-only" id="jobStatus" role="status"></div>
                 <div id="jobProgress" hidden>
@@ -2275,6 +2469,12 @@ Compare against mean reversion.</pre>
         jobGeneration: 0,
         activeJob: null,
         historyTimer: null,
+        batchSelections: [],
+        batch: null,
+        batchMode: false,
+        batchDismissed: null,
+        batchDetails: new Map(),
+        batchLoading: new Set(),
       };
       async function api(op, params = {}, body) {
         const url = new URL("/api", base);
@@ -2331,6 +2531,95 @@ Compare against mean reversion.</pre>
           setWorkspace(await api("guest", {}, {}));
           notice("Guest workspace created", "ok");
         }
+      }
+      function renderBatchSelectors() {
+        const unique = [],
+          seen = new Set();
+        for (const version of state.versions) {
+          if (!seen.has(version.dataset)) {
+            seen.add(version.dataset);
+            unique.push(version);
+          }
+        }
+        if (!state.batchSelections.length) {
+          const first =
+            unique.find((v) => v._id === state.version?._id) || unique[0];
+          state.batchSelections = first
+            ? [
+                first._id,
+                ...unique
+                  .filter((v) => v.dataset !== first.dataset)
+                  .slice(0, 5)
+                  .map((v) => v._id),
+              ]
+            : [];
+        }
+        while (state.batchSelections.length < 6) {
+          const used = new Set(
+            state.batchSelections.map(
+              (id) => state.versions.find((v) => v._id === id)?.dataset,
+            ),
+          );
+          const next = unique.find((v) => !used.has(v.dataset));
+          if (!next) break;
+          state.batchSelections.push(next._id);
+        }
+        state.batchSelections = state.batchSelections.slice(0, 6);
+        $("batchSelectors").innerHTML = state.batchSelections
+          .map((selected, index) => {
+            const usedElsewhere = new Set(
+              state.batchSelections
+                .filter((_, i) => i !== index)
+                .map((id) => state.versions.find((v) => v._id === id)?.dataset),
+            );
+            return (
+              "<label>Dataset " +
+              String.fromCharCode(65 + index) +
+              '<select class="batch-dataset" aria-label="Dataset ' +
+              String.fromCharCode(65 + index) +
+              '" data-slot="' +
+              index +
+              '">' +
+              unique
+                .map(
+                  (v) =>
+                    '<option value="' +
+                    esc(v._id) +
+                    '"' +
+                    (v._id === selected ? " selected" : "") +
+                    (usedElsewhere.has(v.dataset) && v._id !== selected
+                      ? " disabled"
+                      : "") +
+                    ">" +
+                    esc(sourceName(v.meta)) +
+                    " / " +
+                    esc(v._id.slice(-7)) +
+                    "</option>",
+                )
+                .join("") +
+              "</select></label>"
+            );
+          })
+          .join("");
+        $("batchSetup")
+          .querySelectorAll(".batch-dataset")
+          .forEach(
+            (select) =>
+              (select.onchange = () => {
+                state.batchSelections[Number(select.dataset.slot)] =
+                  select.value;
+                const active = document.activeElement.dataset.slot;
+                renderBatchSelectors();
+                $("batchSelectors")
+                  .querySelector(`[data-slot="${active}"]`)
+                  ?.focus();
+              }),
+          );
+        $("run").disabled = state.batchSelections.length !== 6;
+        $("run").title =
+          state.batchSelections.length === 6
+            ? "Run this edge on six distinct datasets"
+            : "Six ready datasets are required";
       }
       function screen(view) {
         if (
@@ -2732,6 +3021,22 @@ Compare against mean reversion.</pre>
           esc(v.meta.lag) +
           "</p></details>";
         await loadWindow();
+        if (state.batchSelections.length && state.version) {
+          const selectedIndex = state.batchSelections.findIndex(
+            (id) =>
+              state.versions.find((version) => version._id === id)?.dataset ===
+              state.version.dataset,
+          );
+          if (selectedIndex > 0) {
+            [state.batchSelections[0], state.batchSelections[selectedIndex]] = [
+              state.batchSelections[selectedIndex],
+              state.batchSelections[0],
+            ];
+          } else if (selectedIndex < 0) {
+            state.batchSelections[0] = state.version._id;
+          }
+        }
+        renderBatchSelectors();
       }
       let windowRequest = 0;
       function clearReport() {
@@ -2830,6 +3135,12 @@ Compare against mean reversion.</pre>
           state.activeJob = null;
           clearTimeout(state.historyTimer);
           $("jobProgress").hidden = true;
+          state.batch = null;
+          state.batchMode = false;
+          state.batchDetails.clear();
+          state.batchLoading.clear();
+          document.body.classList.remove("batch-view-active");
+          $("batchBoard").hidden = true;
         }
         state.workspace = s.workspace ? s : null;
         $("workspaceButton").textContent = s.workspace
@@ -3010,16 +3321,24 @@ Compare against mean reversion.</pre>
           await requireWorkspace();
           if (!state.version)
             throw new Error("Wait for the dataset to finish loading.");
+          const datasets = [...state.batchSelections];
+          if (
+            datasets.length !== 6 ||
+            new Set(
+              datasets.map(
+                (id) => state.versions.find((v) => v._id === id)?.dataset,
+              ),
+            ).size !== 6
+          )
+            throw new Error("Choose six different ready datasets.");
           const code = $("code").value,
-            saved =
-              state.edge?.code === code &&
-              state.edge?.datasetVersion === state.version._id;
+            saved = state.edge?.code === code;
           const r = await api(
-            "run",
+            "runBatch",
             {},
             {
               code,
-              datasetVersion: state.version._id,
+              datasets,
               config: currentConfig(),
               edge: saved ? state.edge.edge : null,
               edgeVersion: saved ? state.edge.version : null,
@@ -3031,8 +3350,8 @@ Compare against mean reversion.</pre>
             },
           );
           $("jobStatus").textContent = "Job " + r.job + " accepted";
-          notice("Research job accepted", "ok");
-          trackJob(r.job);
+          notice("Six dataset research accepted", "ok");
+          trackJob(r.job, true, r.datasets, code);
         } catch (e) {
           setRunning(false);
           throw e;
@@ -3061,7 +3380,174 @@ Compare against mean reversion.</pre>
           job.status,
         );
       }
-      function trackJob(id, follow = true) {
+      function miniPath(points, key) {
+        const values = points.map((point) => point[key]),
+          finite = values.filter(Number.isFinite);
+        if (finite.length < 2) return "";
+        const low = Math.min(...finite),
+          span = Math.max(...finite) - low || 1,
+          denominator = Math.max(1, points.length - 1);
+        return values
+          .map((value, index) =>
+            Number.isFinite(value)
+              ? (index ? "L" : "M") +
+                (4 + (292 * index) / denominator).toFixed(1) +
+                "," +
+                (78 - ((value - low) / span) * 66).toFixed(1)
+              : "",
+          )
+          .filter(Boolean)
+          .join(" ");
+      }
+      function renderBatchBoard(job) {
+        if (!state.batch || state.batch.id !== job._id) {
+          state.batch = {
+            id: job._id,
+            datasets: job.datasets || [],
+            code: job.code || "",
+          };
+          state.batchDetails.clear();
+          state.batchLoading.clear();
+        } else {
+          state.batch.datasets = job.datasets || state.batch.datasets;
+          if (job.code) state.batch.code = job.code;
+        }
+        const progress = job.progress || {},
+          perDataset = progress.datasets || [],
+          panels = state.batch.datasets.map((dataset, index) => {
+            const p = perDataset[index] || dataset;
+            let status = p.status || "queued";
+            if (job.status === "cancelled" && status !== "completed")
+              status = "cancelled";
+            else if (job.status === "failed" && status !== "completed")
+              status = "failed";
+            const detail = state.batchDetails.get(dataset.runId),
+              points = detail?.window?.points || [],
+              chart = points.length
+                ? '<svg class="batch-chart" viewBox="0 0 300 84" role="img" aria-label="Price and edge score for ' +
+                  esc(dataset.name) +
+                  '"><path class="price-line" d="' +
+                  miniPath(points, "close") +
+                  '"></path><path class="score-line" d="' +
+                  miniPath(points, "score") +
+                  '"></path></svg><div class="batch-chart-legend"><span>Price, normalized</span><span>Edge score, normalized</span></div>'
+                : '<div class="batch-chart" aria-hidden="true"></div>',
+              value = Number.isFinite(p.percent) ? p.percent : 0;
+            return (
+              '<article class="batch-panel" data-status="' +
+              esc(status) +
+              '"><div class="batch-panel-head"><h3>' +
+              esc(dataset.name) +
+              '</h3><span class="batch-panel-status">' +
+              esc(p.stage || status) +
+              " " +
+              (Number.isFinite(p.percent) ? p.percent + "%" : "") +
+              '</span></div><progress aria-label="' +
+              esc(dataset.name) +
+              ' progress" max="100" value="' +
+              value +
+              '"></progress>' +
+              chart +
+              '<div class="batch-panel-metrics"><span>Mean IC <b>' +
+              (detail ? fmt(detail.report.diagnostic?.meanIC) : "—") +
+              '</b></span><span>Net return <b class="' +
+              (detail && detail.report.metrics?.cumulativeReturn > 0
+                ? "positive"
+                : detail && detail.report.metrics?.cumulativeReturn < 0
+                  ? "negative"
+                  : "") +
+              '">' +
+              (detail ? pct(detail.report.metrics?.cumulativeReturn) : "—") +
+              "</b></span>" +
+              (status === "completed"
+                ? '<button data-open-batch-run="' +
+                  dataset.runId +
+                  '">Open report</button>'
+                : "") +
+              "</div></article>"
+            );
+          });
+        $("batchBoard").hidden = !state.batchMode;
+        document.body.classList.toggle("batch-view-active", state.batchMode);
+        $("batchStatus").textContent = progress.stage || job.status || "Queued";
+        $("batchMeter").value = Number.isFinite(progress.percent)
+          ? progress.percent
+          : 0;
+        $("batchMeter").setAttribute(
+          "aria-valuetext",
+          (progress.stage || job.status) + ", " + $("batchMeter").value + "%",
+        );
+        $("cancelBatch").hidden = !["queued", "running", "retrying"].includes(
+          job.status,
+        );
+        $("batchCode").textContent =
+          state.batch.code || "Edge score across six datasets";
+        $("batchGrid").innerHTML = panels.join("");
+        $("batchGrid")
+          .querySelectorAll("[data-open-batch-run]")
+          .forEach(
+            (button) =>
+              (button.onclick = () =>
+                action(button, async () => {
+                  state.batchMode = false;
+                  document.body.classList.remove("batch-view-active");
+                  $("batchBoard").hidden = true;
+                  await openRun(button.dataset.openBatchRun);
+                })),
+          );
+      }
+      async function loadBatchPanels(panels = [], job = null) {
+        const batchId = state.batch?.id;
+        const load = panels.filter(
+          (panel) =>
+            panel.runId &&
+            panel.status === "completed" &&
+            !state.batchDetails.has(panel.runId) &&
+            !state.batchLoading.has(panel.runId),
+        );
+        load.forEach((panel) => state.batchLoading.add(panel.runId));
+        await Promise.allSettled(
+          load.map(async (panel) => {
+            try {
+              const [report, window] = await Promise.all([
+                api("report", { run: panel.runId }),
+                api("runWindow", { run: panel.runId }),
+              ]);
+              if (state.batch?.id === batchId) {
+                state.batchDetails.set(panel.runId, { report, window });
+                if (!state.batch.code) state.batch.code = report.code;
+              }
+            } finally {
+              state.batchLoading.delete(panel.runId);
+            }
+          }),
+        );
+        if (state.batch?.id === batchId)
+          renderBatchBoard(
+            job || {
+              _id: state.batch.id,
+              datasets: state.batch.datasets,
+              progress: { percent: 100, stage: "Completed", datasets: panels },
+              status: "completed",
+            },
+          );
+      }
+      function trackJob(id, follow = true, datasets = null, code = null) {
+        if (datasets) {
+          state.batch = { id, datasets, code: code || "" };
+          state.batchMode = true;
+          state.batchDismissed = null;
+          state.batchDetails.clear();
+          state.batchLoading.clear();
+          document.body.classList.add("batch-view-active");
+          $("batchSetup").open = false;
+          renderBatchBoard({
+            _id: id,
+            datasets,
+            code,
+            progress: { percent: 0, stage: "Queued" },
+          });
+        }
         state.activeJob = id;
         const generation = ++state.jobGeneration;
         setRunning(true);
@@ -3081,7 +3567,7 @@ Compare against mean reversion.</pre>
           active &&
           !state.activeJob
         )
-          trackJob(active._id, false);
+          trackJob(active._id, false, active.batch ? active.datasets : null);
       }
       async function pollJob(id, workspace, generation, follow) {
         try {
@@ -3103,6 +3589,10 @@ Compare against mean reversion.</pre>
           }
           $("jobStatus").textContent = "Job " + j.status;
           renderJobProgress(j);
+          if (j.batch) {
+            renderBatchBoard(j);
+            await loadBatchPanels(j.progress.datasets || [], j);
+          }
           if (j.status === "completed" && j.summary?.run) {
             state.activeJob = null;
             if (follow || state.selectedView === "research") {
@@ -3111,6 +3601,22 @@ Compare against mean reversion.</pre>
             } else if (state.selectedView === "history") await history();
             setRunning(false);
             notice("Experiment ready", "ok");
+            return;
+          }
+          if (j.batch && j.status === "completed") {
+            state.activeJob = null;
+            await loadBatchPanels(j.summary?.panels || []);
+            if (
+              state.batchDismissed !== id &&
+              (follow || state.selectedView === "research")
+            ) {
+              state.batchMode = true;
+              document.body.classList.add("batch-view-active");
+              $("batchBoard").hidden = false;
+              screen("research");
+            } else if (state.selectedView === "history") await history();
+            setRunning(false);
+            notice("Six dataset research ready", "ok");
             return;
           }
           if (["failed", "cancelled"].includes(j.status)) {
@@ -3502,6 +4008,13 @@ Compare against mean reversion.</pre>
               'data-status="' +
               j.status +
               '"></progress></div>' +
+              (j.batch
+                ? '<button data-watch-batch="' +
+                  j._id +
+                  '">' +
+                  (j.status === "completed" ? "Open six" : "View six") +
+                  "</button>"
+                : "") +
               (["queued", "running", "retrying"].includes(j.status)
                 ? '<button data-cancel="' + j._id + '">Cancel</button>'
                 : ["failed", "cancelled"].includes(j.status)
@@ -3510,6 +4023,33 @@ Compare against mean reversion.</pre>
               "</div>",
           )
           .join("");
+        $("jobsList")
+          .querySelectorAll("[data-watch-batch]")
+          .forEach(
+            (button) =>
+              (button.onclick = () =>
+                action(button, async () => {
+                  const job = js.jobs.find(
+                    (j) => j._id === button.dataset.watchBatch,
+                  );
+                  if (!job) return;
+                  state.batch = {
+                    id: job._id,
+                    datasets: job.datasets,
+                    code: "",
+                  };
+                  state.batchMode = true;
+                  state.batchDismissed = null;
+                  state.batchDetails.clear();
+                  state.batchLoading.clear();
+                  document.body.classList.add("batch-view-active");
+                  renderBatchBoard(job);
+                  if (job.status === "completed") {
+                    await loadBatchPanels(job.summary?.panels || []);
+                    screen("research");
+                  } else trackJob(job._id, false, job.datasets);
+                })),
+          );
         $("jobsList")
           .querySelectorAll("[data-cancel],[data-retry]")
           .forEach(
@@ -4102,6 +4642,25 @@ Compare against mean reversion.</pre>
             }
           }
         },
+        closeBatchBoard: () => {
+          state.batchDismissed = state.batch?.id || null;
+          state.batchMode = false;
+          document.body.classList.remove("batch-view-active");
+          $("batchBoard").hidden = true;
+          screen("research");
+        },
+        cancelBatch: async () => {
+          if (!state.activeJob) return;
+          const id = state.activeJob;
+          await api("cancel", {}, { id });
+          const job = (await api("jobs", { id })).jobs[0];
+          if (job) renderBatchBoard(job);
+          if (job?.status === "cancelled") {
+            state.activeJob = null;
+            state.jobGeneration++;
+            setRunning(false);
+          }
+        },
         resetZoom: () => {
           $("from").value = state.version.from;
           $("to").value = state.version.to;
@@ -4200,8 +4759,8 @@ Compare against mean reversion.</pre>
       }
       function setRunning(value) {
         state.running = value;
-        $("run").disabled = value;
-        $("run").textContent = value ? "Running…" : "Run edge";
+        $("run").disabled = value || state.batchSelections.length !== 6;
+        $("run").textContent = value ? "Running…" : "Run on 6 datasets";
         $("run").setAttribute("aria-busy", value);
       }
       document.querySelectorAll("[data-result]").forEach((b) => {

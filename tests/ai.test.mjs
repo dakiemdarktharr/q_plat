@@ -22,7 +22,10 @@ test("AI token permissions deny management and writes outside research scope", (
       assert.throws(() => authorizeOperation(s, "run", "POST"), {
         status: 403,
       });
-    else authorizeOperation(s, "run", "POST");
+    else {
+      authorizeOperation(s, "run", "POST");
+      authorizeOperation(s, "runBatch", "POST");
+    }
   }
 });
 test("API credentials are hash-only, scoped, expiring and revocable", async () => {
@@ -74,7 +77,14 @@ test("MCP lifecycle, tools, resource, notifications and bounded argument validat
       throw new Error("Unexpected dispatch");
     });
   assert.equal((await call("initialize")).result.protocolVersion, PROTOCOL);
-  assert.equal((await call("tools/list")).result.tools.length, 15);
+  const tools = (await call("tools/list")).result.tools;
+  assert.equal(tools.length, 16);
+  const batchTool = tools.find(
+    (tool) => tool.name === "run_research_across_datasets",
+  );
+  assert.ok(batchTool);
+  assert.equal(batchTool.inputSchema.properties.datasets.minItems, 6);
+  assert.equal(batchTool.inputSchema.properties.datasets.uniqueItems, true);
   assert.ok(
     (
       await call("resources/read", { uri: "qtpatuti://dsl" })
@@ -119,6 +129,30 @@ test("MCP dispatch shares API auth and rejects injected paths and query properti
       assert.equal(r.headers.get("cookie"), null);
       assert.equal((await r.json()).code, "score = rank(close)");
       return Response.json({ job: "accepted" });
+    },
+  );
+  const batchArgs = {
+    code: "score = rank(close)",
+    datasets: ["a", "b", "c", "d", "e", "f"],
+  };
+  await assert.rejects(
+    invokeTool(
+      "run_research_across_datasets",
+      { ...batchArgs, datasets: ["a", "a", "b", "c", "d", "e"] },
+      request,
+      () => assert.fail("Invalid batch request reached the API."),
+    ),
+    { status: 400 },
+  );
+  await invokeTool(
+    "run_research_across_datasets",
+    batchArgs,
+    request,
+    async (r) => {
+      assert.equal(r.url, "https://example.com/api?op=runBatch");
+      assert.equal(r.method, "POST");
+      assert.equal((await r.json()).datasets.length, 6);
+      return Response.json({ job: "accepted" }, { status: 202 });
     },
   );
   for (const args of [
