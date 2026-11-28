@@ -26,6 +26,10 @@ function signedRequest(request, nonce = randomUUID()) {
 const clients = [];
 let storedUsage = 0;
 let mongoReadCount = 0;
+let blockAtlasReads = false;
+let atlasReadGate = null;
+let atlasReadsReached = 0;
+let releaseEightAtlasReads;
 class FakeClient {
   constructor(uri) {
     this.uri = uri;
@@ -47,6 +51,11 @@ class FakeClient {
         },
         countDocuments: async () => {
           mongoReadCount += 1;
+          if (blockAtlasReads) {
+            atlasReadsReached++;
+            if (atlasReadsReached === 8) releaseEightAtlasReads?.();
+            await atlasReadGate;
+          }
           return 7;
         },
       }),
@@ -174,4 +183,47 @@ test("RPC rejects a replayed signed request", async () => {
     fetch(`${base}/rpc`, { method: "POST", headers: signed.headers, body: signed.body });
   assert.equal((await send()).status, 200);
   assert.equal((await send()).status, 401);
+});
+
+test("RPC serves eight concurrent Atlas operations and rejects the ninth", async () => {
+  let releaseReads;
+  const gate = new Promise((resolve) => (releaseReads = resolve));
+  let resolveEight;
+  const eightReads = new Promise((resolve) => (resolveEight = resolve));
+  atlasReadGate = gate;
+  atlasReadsReached = 0;
+  releaseEightAtlasReads = resolveEight;
+  blockAtlasReads = true;
+  const send = () => {
+    const signed = signedRequest({
+      database: "q_plat",
+      collection: "jobs",
+      operation: "countDocuments",
+      args: [{}],
+    });
+    return fetch(`${base}/rpc`, {
+      method: "POST",
+      headers: signed.headers,
+      body: signed.body,
+    });
+  };
+  const firstEight = Array.from({ length: 8 }, send);
+  try {
+    await Promise.race([
+      eightReads,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Eight reads did not enter Atlas.")), 5000),
+      ),
+    ]);
+    const overflow = await send();
+    assert.equal(overflow.status, 429);
+    assert.equal((await overflow.json()).error, "Relay is at capacity.");
+  } finally {
+    blockAtlasReads = false;
+    releaseReads();
+    atlasReadGate = null;
+    releaseEightAtlasReads = null;
+  }
+  const responses = await Promise.all(firstEight);
+  assert.equal(responses.filter((response) => response.status === 200).length, 8);
 });

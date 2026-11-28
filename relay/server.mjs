@@ -39,7 +39,7 @@ const OPERATIONS = new Set([
 const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const MAX_MONTHLY_BYTES = 10 * 1024 * 1024 * 1024;
-const MAX_ACTIVE_REQUESTS = 4;
+const MAX_ACTIVE_REQUESTS = 8;
 const SIGNATURE_TTL_MS = 60_000;
 
 function json(res, status, body) {

@@ -16,9 +16,13 @@ let captured;
 let capturedRequests = [];
 let pagedRows = null;
 let responseTooLargeAbove = null;
+let capacityResponsesRemaining = 0;
 globalThis.fetch = async (url, options) => {
   captured = { url: String(url), options, request: EJSON.parse(options.body) };
-  capturedRequests.push(captured.request);
+  capturedRequests.push({
+    ...captured.request,
+    nonce: options.headers["x-qtpatuti-nonce"],
+  });
   const timestamp = options.headers["x-qtpatuti-timestamp"];
   const nonce = options.headers["x-qtpatuti-nonce"];
   const signature = options.headers["x-qtpatuti-signature"];
@@ -36,6 +40,16 @@ globalThis.fetch = async (url, options) => {
       ),
       { status: 413, headers: { "content-type": "application/ejson" } },
     );
+  if (capacityResponsesRemaining > 0) {
+    capacityResponsesRemaining--;
+    return new Response(
+      EJSON.stringify(
+        { ok: false, error: "Relay is at capacity." },
+        { relaxed: false },
+      ),
+      { status: 429, headers: { "content-type": "application/ejson" } },
+    );
+  }
   const result =
     captured.request.operation === "countDocuments"
       ? 0
@@ -95,6 +109,20 @@ test("database relay learns a smaller page size for large result chunks", async 
   } finally {
     pagedRows = null;
     responseTooLargeAbove = null;
+  }
+});
+
+test("database relay retries transient capacity errors with fresh signatures", async () => {
+  capturedRequests = [];
+  capacityResponsesRemaining = 2;
+  try {
+    const count = await (await db()).collection("jobs").countDocuments({});
+    assert.equal(count, 0);
+    assert.equal(capturedRequests.length, 3);
+    assert.notEqual(capturedRequests[0].nonce, capturedRequests[1].nonce);
+    assert.notEqual(capturedRequests[1].nonce, capturedRequests[2].nonce);
+  } finally {
+    capacityResponsesRemaining = 0;
   }
 });
 

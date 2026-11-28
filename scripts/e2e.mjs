@@ -217,11 +217,17 @@ try {
   const catalog = await (
     await context.request.get(base + "/api?op=catalog")
   ).json();
+  const visibleVersions = new Set(
+    await page.locator("#dataset option").evaluateAll((options) =>
+      options.map((option) => option.value),
+    ),
+  );
   const compatible = [
     ...new Map(
       catalog.versions
         .filter(
           (version) =>
+            visibleVersions.has(version._id) &&
             /^wiki_sp500_\d{3}$/.test(version.dataset) &&
             version.meta.fields.includes("high") &&
             version.meta.fields.includes("low"),
@@ -358,6 +364,8 @@ try {
     { timeout: 120000 },
   );
   const originalRun = await openBatchPanel(firstBatch);
+  const initialSeriesRows = await page.locator("#seriesTable tbody tr").count();
+  assert.ok(initialSeriesRows > 0);
   pass(
     "09 six dataset monitor survives tab close and renders six edge/data plots",
     {
@@ -373,7 +381,7 @@ try {
     { timeout: 30000 },
   );
   const rankRows = await page.locator("#crossTable tbody tr").count();
-  assert.equal(rankRows, 30);
+  assert.equal(rankRows, firstCompatible.assets.length);
   await page.locator("#tab-signal").click();
   await page.locator("#crossTable tbody tr").nth(1).click();
   await page.waitForFunction(
@@ -395,7 +403,9 @@ try {
   );
   await page.locator("#resetZoom").click();
   await page.waitForFunction(
-    () => document.querySelectorAll("#seriesTable tbody tr").length === 25,
+    (expected) =>
+      document.querySelectorAll("#seriesTable tbody tr").length === expected,
+    initialSeriesRows,
   );
   const rectangle = await page.locator("#priceChart").boundingBox();
   await page.mouse.move(rectangle.x + 100, rectangle.y + 80);
@@ -403,11 +413,15 @@ try {
   await page.mouse.move(rectangle.x + 300, rectangle.y + 80, { steps: 5 });
   await page.mouse.up();
   await page.waitForFunction(
-    () => document.querySelectorAll("#seriesTable tbody tr").length < 25,
+    (expected) =>
+      document.querySelectorAll("#seriesTable tbody tr").length < expected,
+    initialSeriesRows,
   );
   await page.locator("#resetZoom").click();
   await page.waitForFunction(
-    () => document.querySelectorAll("#seriesTable tbody tr").length === 25,
+    (expected) =>
+      document.querySelectorAll("#seriesTable tbody tr").length === expected,
+    initialSeriesRows,
   );
   const marker = await page.evaluate(async (run) => {
     const asset = document.querySelector("#asset").value,
@@ -422,7 +436,9 @@ try {
     ]);
     const f = r.fills.find((f) => f.type === "fill");
     if (!f) return null;
-    const i = w.points.findIndex((p) => p.date === f.date),
+    const i = w.points.findIndex(
+        (p) => p.date >= f.date && (p.startDate || p.date) <= f.date,
+      ),
       b = document.querySelector("#priceChart").getBoundingClientRect();
     let lo = Math.min(...w.points.map((p) => p.low)),
       hi = Math.max(...w.points.map((p) => p.high));
@@ -448,11 +464,17 @@ try {
   pass("03 hover, zoom, brush and exact fill-marker drill-down");
   await page.locator("#frame").selectOption("5");
   await page.waitForFunction(
-    () => document.querySelectorAll("#seriesTable tbody tr").length === 5,
+    (maximum) => {
+      const rows = document.querySelectorAll("#seriesTable tbody tr").length;
+      return rows > 0 && rows <= maximum;
+    },
+    initialSeriesRows,
   );
   await page.locator("#frame").selectOption("1");
   await page.waitForFunction(
-    () => document.querySelectorAll("#seriesTable tbody tr").length === 25,
+    (expected) =>
+      document.querySelectorAll("#seriesTable tbody tr").length === expected,
+    initialSeriesRows,
   );
   await page.locator("#heatChart").click({ position: { x: 180, y: 70 } });
   await page.waitForFunction(() =>

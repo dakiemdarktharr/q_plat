@@ -74,3 +74,26 @@ HTML SHA-256: `a65d93b6ecebe4f9462e906df8ef8348ec5b6406045d48cef4ab90f8ae9c0d93`
 Each admitted panel is a new six-stock Atlas snapshot, grouped by sector where the screened universe allows. The planner prefers symbol-disjoint panels, then uses unique overlapping cohorts if fewer than 420 symbols pass. Every snapshot records whether its members overlap another cohort and includes the coverage screen, constituent source hash, source ZIP hash, normalized checksum and quality audit. These are 70 curated panels from one historical public-domain source, **not 70 independent vendors or source histories**. The constituent list is current, not point-in-time; the 2012–2017 universe has survivorship and selection look-ahead. Nasdaq says the WIKI archive has not been maintained since 2018 and is not recommended for investment or analysis. Keep the datasets labeled exploratory and do not interpret repeat results across overlapping panels as independent evidence.
 
 No per-panel snapshot becomes visible until its own Atlas count and normalized hash readback pass. The job reports the source screen, plan creation, archive scan and each snapshot write through the durable import progress record. The route permits only the named owner bundle; public visitors can only read bounded ready snapshots. This ingestion adds no paid service or storage tier.
+
+## 70-cohort Atlas import audit — 2026-11-28
+
+The owner import completed as job `5b5ddca6-e4e4-49d8-aa14-bc69563daf26` in 22m24s. The durable Atlas plan is `complete`, with all **70** snapshot IDs committed. Production catalog and an independent Atlas aggregation both found 70 distinct ready datasets and **633,266 bars** total (9,021–9,048 bars per cohort). All 70 had six assets, `wiki-calendar-2` audits, at least **99.6355%** coverage against the 1,509-session calendar, no unexplained move over 50%, and fewer than 0.5% rejected bars. All normalized checksums were verified by the importer against Atlas readback; every checksum is stored with its snapshot.
+
+| Sector / category | Cohorts |
+|---|---:|
+| Communication Services | 2 |
+| Consumer Discretionary | 6 |
+| Consumer Staples | 4 |
+| Energy | 2 |
+| Financials | 9 |
+| Health Care | 8 |
+| Industrials | 10 |
+| Information Technology | 8 |
+| Materials | 3 |
+| Real Estate | 4 |
+| Utilities | 4 |
+| Cross-sector fallback | 10 |
+
+The current constituent screen started with 503 rows: 388 symbols passed historical coverage and bar checks, and 115 were screened out. Ten cohorts use recorded symbol overlap after the planner exhausted disjoint eligible sets. The 70 cohorts all come from the same frozen WIKI archive; category counts and repeated cohorts are not independent market samples.
+
+After import, the Atlas data database reported 100,941,824 bytes of storage and 85,770,240 bytes of indexes (186,712,064 bytes combined, about 35% of 512 MiB). The importer still reads and normalizes the archive only in cloud memory; no raw or normalized market dataset was written to the laptop. Each six-stock panel now writes in one idempotent bulk batch instead of five 2,000-row batches, reducing relay calls and checkpoint overhead.
