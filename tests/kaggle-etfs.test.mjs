@@ -8,6 +8,7 @@ import {
   kaggleEtfPanelMeta,
   parseKaggleEtfCsv,
 } from "../lib/kaggle-etfs.mjs";
+import { kaggleFileDownloadUrl } from "../lib/kaggle-download.mjs";
 import {
   isKaggleEtfSession,
   KAGGLE_ETF_SESSIONS,
@@ -89,6 +90,46 @@ test("candidate metadata removes duplicate and leveraged products before screeni
   assert.deepEqual(
     candidates.map((item) => item.symbol),
     ["SPY", "QQQ"],
+  );
+});
+
+test("Kaggle file download uses the RPC and only accepts signed Google Storage redirects", async () => {
+  let request;
+  const target =
+    "https://storage.googleapis.com/archive/etfs/CEF.csv.zip?sig=private";
+  const url = await kaggleFileDownloadUrl(
+    { name: "etfs/CEF.csv", totalBytes: 736212 },
+    async (input, init) => {
+      request = { input: String(input), init };
+      return new Response(null, {
+        status: 302,
+        headers: { location: target },
+      });
+    },
+  );
+  assert.equal(
+    request.input,
+    "https://api.kaggle.com/v1/datasets.DatasetApiService/DownloadDataset",
+  );
+  assert.equal(request.init.method, "POST");
+  assert.equal(request.init.redirect, "manual");
+  assert.deepEqual(JSON.parse(request.init.body), {
+    ownerSlug: "jacksoncrow",
+    datasetSlug: "stock-market-dataset",
+    fileName: "etfs/CEF.csv",
+    datasetVersionNumber: 2,
+  });
+  assert.equal(url.hostname, "storage.googleapis.com");
+  await assert.rejects(
+    kaggleFileDownloadUrl(
+      { name: "etfs/CEF.csv" },
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: "https://attacker.invalid/file.csv" },
+        }),
+    ),
+    /unapproved storage redirect/,
   );
 });
 

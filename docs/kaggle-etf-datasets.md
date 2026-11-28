@@ -27,7 +27,7 @@ Only a complete six-symbol panel is published. Atlas stores its immutable normal
 
 Workspace, catalog, snapshot metadata and screening checkpoints remain on the current data M0. The 70 new panels alternate between two additional Atlas M0 clusters: 35 panel versions route to `qt70a-` and 35 to `qt70b-`. Their bars use the same compound indexes as existing panels. Result chunks continue to use run-hash partitioning across the two clusters. The importer performs one idempotent bulk write per panel and verifies Atlas counts and a normalized readback checksum before marking the snapshot ready.
 
-The owner-only job reports manifest, candidate screening, panel saving and panel verification progress. It checkpoints each accepted symbol, rejected candidates in small batches and every complete panel so retries do not publish partial snapshots. Only a transient source/network failure is retried; it does not count as a rejected ETF. The supported command is:
+The owner-only job reports manifest, candidate screening, panel saving and panel verification progress. It downloads one file at a time through Kaggle's official `DatasetApiService/DownloadDataset` RPC, follows only HTTPS redirects to Google Cloud Storage, and keeps file bytes in bounded worker memory. It checkpoints each accepted symbol, rejected candidates in small batches and every complete panel so retries do not publish partial snapshots. Only a transient source/network failure is retried; it does not count as a rejected ETF. The supported command is:
 
 ```text
 node scripts/admin.mjs import kaggle_etf_objective_panels_70
