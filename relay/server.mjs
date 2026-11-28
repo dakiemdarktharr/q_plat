@@ -60,6 +60,9 @@ function errorDiagnostic(error) {
   const code = ["string", "number"].includes(typeof error?.code)
     ? String(error.code)
     : "";
+  const codeName = /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(error?.codeName || "")
+    ? error.codeName
+    : "";
   const message = String(error?.message || "");
   const kind = /bad auth|authentication failed/i.test(message)
     ? "authentication"
@@ -69,6 +72,7 @@ function errorDiagnostic(error) {
   return {
     name,
     ...(code && /^[A-Za-z0-9_-]{1,40}$/.test(code) ? { code } : {}),
+    ...(codeName ? { codeName } : {}),
     ...(kind ? { kind } : {}),
   };
 }
@@ -250,12 +254,32 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
       res.end(output);
     } catch (error) {
       const status = Number.isInteger(error?.status) ? error.status : 500;
+      const safeDetail =
+        request?.operation === "ping" ||
+        (request?.operation === "findOne" &&
+          request.collection === "workspaces" &&
+          request.args?.[0]?._id === "__health_probe__") ||
+        (request?.operation === "createIndex" &&
+          ["bars", "datasets", "dataset_versions"].includes(request.collection));
       json(res, status, {
         ok: false,
         error: error?.message || "MongoDB relay failed.",
         diagnostic: {
           ...errorDiagnostic(error),
           stage,
+          ...(safeDetail
+            ? {
+                detail: String(error?.message || "")
+                  .replace(/mongodb(?:\+srv)?:\/\/[^\s"'<>]+/gi, "[redacted-uri]")
+                  .replace(/\b(password|pwd|token|secret|signature)\b\s*[:=]\s*[^\s,;]+/gi, "$1=[redacted]")
+                  .replace(/\s+/g, " ")
+                  .slice(0, 180),
+              }
+            : {}),
+          ...(typeof request?.operation === "string" &&
+          /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(request.operation)
+            ? { operation: request.operation }
+            : {}),
           ...(stage === "operation" ? { collection: request?.collection } : { collection: "relay_usage" }),
         },
       });

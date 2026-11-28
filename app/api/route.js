@@ -96,7 +96,7 @@ async function handle(request) {
           "q_plat database health check failed",
           error.stage || error.name || "Error",
           error.collection || "-",
-          error.kind || error.relayStatus || error.code || "-",
+          error.detail || error.kind || error.relayStatus || error.code || "-",
           Number.isInteger(error.status) ? error.status : "-",
         );
         database =
@@ -960,7 +960,7 @@ async function handle(request) {
         op,
         e.stage || e.name || "Error",
         e.collection || "-",
-        e.kind || e.code || "-",
+        e.detail || e.kind || e.code || "-",
         e.relayStatus || (Number.isInteger(e.status) ? e.status : "-"),
       );
     return json(

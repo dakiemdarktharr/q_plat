@@ -179,6 +179,31 @@ test("RPC operation failures return collection diagnostics without crashing", as
   }
 });
 
+test("RPC health ping failures return only sanitized diagnostics", async () => {
+  failingUri = "mongodb://core.invalid";
+  try {
+    const signed = signedRequest({
+      database: "q_plat",
+      collection: "workspaces",
+      operation: "ping",
+      args: [],
+    });
+    const response = await fetch(`${base}/rpc`, {
+      method: "POST",
+      headers: signed.headers,
+      body: signed.body,
+    });
+    assert.equal(response.status, 500);
+    const body = await response.json();
+    assert.equal(body.diagnostic.operation, "ping");
+    assert.equal(body.diagnostic.collection, "workspaces");
+    assert.equal(body.diagnostic.detail, "Atlas unavailable");
+    assert.equal(body.diagnostic.code, "ETIMEDOUT");
+  } finally {
+    failingUri = null;
+  }
+});
+
 test("RPC allows a signed health ping through the core database only", async () => {
   const signed = signedRequest({
     database: "q_plat",
