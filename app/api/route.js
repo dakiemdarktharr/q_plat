@@ -491,9 +491,14 @@ async function handle(request) {
         ids = Array.isArray(b.datasets) ? [...new Set(b.datasets)] : [];
       if (ids.length !== 6 || b.datasets.length !== 6)
         throw httpError("Choose six different datasets.");
-      const versions = await Promise.all(
-        ids.map((id) => getVersion(database, id)),
-      );
+      const found = await database
+        .collection("dataset_versions")
+        .find({ _id: { $in: ids }, status: "ready" })
+        .toArray();
+      if (found.length !== ids.length)
+        throw httpError("Snapshot not found or not ready.", 404);
+      const byId = new Map(found.map((version) => [version._id, version]));
+      const versions = ids.map((id) => byId.get(id));
       if (new Set(versions.map((v) => v.dataset)).size !== 6)
         throw httpError("Each panel must use a different dataset.");
       const config = validateConfig(b.config);

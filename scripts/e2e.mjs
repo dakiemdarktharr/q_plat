@@ -298,7 +298,10 @@ try {
     (r) => r.url().includes("op=runBatch") && r.request().method() === "POST",
   );
   await page.locator("#run").click();
-  const batchId = (await (await batchAccepted).json()).job;
+  const batchResponse = await batchAccepted,
+    batchBody = await batchResponse.json();
+  assert.equal(batchResponse.status(), 202, JSON.stringify(batchBody));
+  const batchId = batchBody.job;
   assert.ok(batchId);
   await page.waitForFunction(
     () => document.querySelector("#jobStatus").textContent.includes("accepted"),
