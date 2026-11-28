@@ -938,6 +938,8 @@ async function handle(request) {
     throw httpError("Unknown operation or method.", 404);
   } catch (e) {
     const status = e.status || (e.name === "DslError" ? 400 : 500);
+    if (status === 500)
+      console.error("q_plat API failure", op, e.name || "Error", e.code || "-");
     return json(
       {
         error:

@@ -12,7 +12,8 @@ const pass = (name, scalars = {}) => {
   console.log("PASS", name, JSON.stringify(scalars));
 };
 const waitBatch = async (id) => {
-  let previous = 0;
+  let previous = 0,
+    transientErrors = 0;
   for (let attempt = 0; attempt < 900; attempt++) {
     const result = await page.evaluate(async (jobId) => {
       const response = await fetch(
@@ -21,10 +22,16 @@ const waitBatch = async (id) => {
       );
       return { status: response.status, body: await response.json() };
     }, id);
-    assert.ok(
-      Array.isArray(result.body.jobs),
-      `Job poll failed: HTTP ${result.status} ${result.body.error || "unknown response"}`,
-    );
+    if (
+      !Array.isArray(result.body.jobs) &&
+      [429, 500, 502, 503, 504].includes(result.status) &&
+      ++transientErrors <= 10
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      continue;
+    }
+    assert.ok(Array.isArray(result.body.jobs), `Job poll failed: HTTP ${result.status} ${result.body.error || "unknown response"}`);
+    transientErrors = 0;
     const job = result.body.jobs[0];
     assert.ok(job, "Batch job disappeared.");
     assert.ok(!["failed", "cancelled"].includes(job.status), job.error);
@@ -61,6 +68,7 @@ const openBatchPanel = async (job, datasetVersion = null) => {
   return panel.runId;
 };
 const waitSingle = async (id) => {
+  let transientErrors = 0;
   for (let attempt = 0; attempt < 300; attempt++) {
     const result = await page.evaluate(async (jobId) => {
       const response = await fetch(
@@ -69,10 +77,16 @@ const waitSingle = async (id) => {
       );
       return { status: response.status, body: await response.json() };
     }, id);
-    assert.ok(
-      Array.isArray(result.body.jobs),
-      `Job poll failed: HTTP ${result.status} ${result.body.error || "unknown response"}`,
-    );
+    if (
+      !Array.isArray(result.body.jobs) &&
+      [429, 500, 502, 503, 504].includes(result.status) &&
+      ++transientErrors <= 10
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      continue;
+    }
+    assert.ok(Array.isArray(result.body.jobs), `Job poll failed: HTTP ${result.status} ${result.body.error || "unknown response"}`);
+    transientErrors = 0;
     const job = result.body.jobs[0];
     assert.ok(job, "Research job disappeared.");
     assert.ok(!["failed", "cancelled"].includes(job.status), job.error);
