@@ -38,3 +38,9 @@ These are design inferences from documented workflows, not a pixel-for-pixel cop
 Black surfaces, white text, purple actions/signal series, yellow reference/context, green/red price and PnL. Decorative subtitles were removed. Units, attribution, uncertainty and execution assumptions remain available because removing them would make results misleading. No market data is written to local browser storage, screenshots, traces or test reports.
 
 Verification results and exact revisions are recorded in GitHub Actions and the README release section; the checklist itself is not evidence of a passed test.
+
+## Interface cleanup — 2026-11-28
+
+The user requested no decorative subtext, button arrows, word-separator dots, eyebrows, italic emphasis, sparkle icons, repeated cards, numbered sections, status dots, hero glows, Instrument Serif, colored left borders, headline pills, fabricated statistics or dithering. Keep these constraints for subsequent UI edits.
+
+The lab now starts with data, charts and the editable edge. One Run button is shared by mouse and keyboard actions. Navigation uses text; results use unboxed sections and simple tab underlines. Run metadata, source attribution, metric definitions and join explanations sit inside closed disclosures. Units, actual numerical results, field labels and actionable error/progress messages remain accessible. Source names are formatted for display without changing stored snapshots. No backend, AI contract or dataset was changed.

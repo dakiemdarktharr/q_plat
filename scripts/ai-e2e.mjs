@@ -36,7 +36,7 @@ try {
   const accepted = page.waitForResponse(
     (r) => r.url().includes("op=run") && r.request().method() === "POST",
   );
-  await page.locator("#quickRun").click();
+  await page.locator("#run").click();
   const first = await accepted;
   assert.equal(first.status(), 202);
   const guestJob = (await first.json()).job;
@@ -47,7 +47,6 @@ try {
     guestJob,
     { timeout: 180000 },
   );
-  assert.equal(await page.locator("#startCard").isHidden(), true);
   assert.ok(await page.locator("#priceChart").isVisible());
   assert.ok(await page.locator("#scoreChart").isVisible());
   assert.ok(await page.locator("#result-overview").isVisible());
@@ -82,7 +81,6 @@ try {
     document.querySelector("#notice").textContent.includes("forbidden"),
   );
   assert.ok(await page.locator("#run").isEnabled());
-  assert.ok(await page.locator("#quickRun").isEnabled());
   await page.locator("#code").fill(originalCode);
   await page.keyboard.press("Control+k");
   await page.locator("#commandSearch").fill("AI");
@@ -272,17 +270,13 @@ try {
   await page.locator("#asset").selectOption(otherAsset);
   await page.waitForFunction(
     (asset) =>
-      document
-        .querySelector("#detail h3")
-        ?.textContent.startsWith(asset + " ·"),
+      document.querySelector("#detail h3")?.textContent.startsWith(asset + ","),
     otherAsset,
   );
   await page.locator("#asset").selectOption(originalAsset);
   await page.waitForFunction(
     (asset) =>
-      document
-        .querySelector("#detail h3")
-        ?.textContent.startsWith(asset + " ·"),
+      document.querySelector("#detail h3")?.textContent.startsWith(asset + ","),
     originalAsset,
   );
   await page.locator("#asset").selectOption(otherAsset);
@@ -292,9 +286,7 @@ try {
     (asset) =>
       state.window.asset === asset &&
       state.runWindow.points.every((p) => p.asset === asset) &&
-      document
-        .querySelector("#detail h3")
-        ?.textContent.startsWith(asset + " ·"),
+      document.querySelector("#detail h3")?.textContent.startsWith(asset + ","),
     originalAsset,
   );
   await page.unroute("**/api?op=runWindow**");
