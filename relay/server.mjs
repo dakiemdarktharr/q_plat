@@ -60,9 +60,16 @@ function errorDiagnostic(error) {
   const code = ["string", "number"].includes(typeof error?.code)
     ? String(error.code)
     : "";
+  const message = String(error?.message || "");
+  const kind = /bad auth|authentication failed/i.test(message)
+    ? "authentication"
+    : /not authorized|unauthorized/i.test(message)
+      ? "authorization"
+      : undefined;
   return {
     name,
     ...(code && /^[A-Za-z0-9_-]{1,40}$/.test(code) ? { code } : {}),
+    ...(kind ? { kind } : {}),
   };
 }
 
@@ -182,10 +189,15 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
         return json(res, 200, { ok: true });
       try {
         const { uri: coreUri } = mongoTarget("q_plat", "workspaces", env);
-        await (await clientFor(coreUri)).db("q_plat").command({ ping: 1 });
+        const core = (await clientFor(coreUri)).db("q_plat");
+        await core.command({ ping: 1 });
+        await core.collection("relay_usage").findOne({ _id: "health-check" });
         const { uri: dataUri } = mongoTarget("q_plat", "bars", env);
-        if (dataUri !== coreUri)
-          await (await clientFor(dataUri)).db("q_plat").command({ ping: 1 });
+        if (dataUri !== coreUri) {
+          const data = (await clientFor(dataUri)).db("q_plat");
+          await data.command({ ping: 1 });
+          await data.collection("bars").findOne({}, { projection: { _id: 1 } });
+        }
         return json(res, 200, { ok: true, core: "connected", data: "connected" });
       } catch (error) {
         return json(res, 503, { ok: false, ...errorDiagnostic(error) });

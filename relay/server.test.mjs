@@ -31,6 +31,7 @@ let atlasReadGate = null;
 let atlasReadsReached = 0;
 let releaseEightAtlasReads;
 let failingUri = null;
+let failingReadUri = null;
 class FakeClient {
   constructor(uri) {
     this.uri = uri;
@@ -48,8 +49,13 @@ class FakeClient {
         return { ok: ping === 1 ? 1 : 0 };
       },
       collection: (collection) => ({
-        findOne: async () =>
-          collection === "relay_usage" ? { bytes: storedUsage } : { name, collection },
+        findOne: async () => {
+          if (this.uri === failingReadUri)
+            throw Object.assign(new Error("bad auth: Authentication failed."), { code: 8000 });
+          return collection === "relay_usage"
+            ? { bytes: storedUsage }
+            : { name, collection };
+        },
         updateOne: async (_filter, update) => {
           if (collection === "relay_usage") storedUsage += update.$inc.bytes;
           return { acknowledged: true };
@@ -103,18 +109,19 @@ test("deep health endpoint pings both Atlas clusters", async () => {
   });
 });
 
-test("deep health endpoint returns only safe error diagnostics", async () => {
-  failingUri = "mongodb://core.invalid";
+test("deep health endpoint checks read access and classifies auth failures", async () => {
+  failingReadUri = "mongodb://core.invalid";
   try {
     const response = await fetch(`${base}/healthz?deep=1`);
     assert.equal(response.status, 503);
     assert.deepEqual(await response.json(), {
       ok: false,
       name: "Error",
-      code: "ETIMEDOUT",
+      code: "8000",
+      kind: "authentication",
     });
   } finally {
-    failingUri = null;
+    failingReadUri = null;
   }
 });
 
