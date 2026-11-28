@@ -87,7 +87,13 @@ async function handle(request) {
         const d = await db();
         await d.command({ ping: 1 });
         database = "connected";
-      } catch {
+      } catch (error) {
+        console.error(
+          "q_plat database health check failed",
+          error.name || "Error",
+          Number.isInteger(error.status) ? error.status : "-",
+          error.code || "-",
+        );
         database =
           process.env.MONGODB_RELAY_URL ||
           process.env.MONGODB_URI ||
@@ -944,7 +950,13 @@ async function handle(request) {
   } catch (e) {
     const status = e.status || (e.name === "DslError" ? 400 : 500);
     if (status === 500)
-      console.error("q_plat API failure", op, e.name || "Error", e.code || "-");
+      console.error(
+        "q_plat API failure",
+        op,
+        e.name || "Error",
+        e.code || "-",
+        Number.isInteger(e.status) ? e.status : "-",
+      );
     return json(
       {
         error:
