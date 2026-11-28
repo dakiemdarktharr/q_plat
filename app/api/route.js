@@ -86,13 +86,17 @@ async function handle(request) {
       try {
         const d = await db();
         await d.command({ ping: 1 });
+        await d.collection("workspaces").findOne({ _id: "__health_probe__" });
+        await d
+          .collection("dataset_versions")
+          .findOne({ _id: "__health_probe__" });
         database = "connected";
       } catch (error) {
         console.error(
           "q_plat database health check failed",
-          error.name || "Error",
+          error.stage || error.name || "Error",
           Number.isInteger(error.status) ? error.status : "-",
-          error.relayStatus || error.code || "-",
+          error.collection || error.kind || error.relayStatus || error.code || "-",
         );
         database =
           process.env.MONGODB_RELAY_URL ||
@@ -953,8 +957,8 @@ async function handle(request) {
       console.error(
         "q_plat API failure",
         op,
-        e.name || "Error",
-        e.code || "-",
+        e.stage || e.name || "Error",
+        e.collection || e.kind || e.code || "-",
         e.relayStatus || (Number.isInteger(e.status) ? e.status : "-"),
       );
     return json(

@@ -209,6 +209,7 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
       return json(res, 429, { ok: false, error: "Relay is at capacity." });
 
     activeRequests += 1;
+    let stage = "usage";
     try {
       const input = await readBody(req);
       const now = Date.now();
@@ -229,6 +230,7 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
       if (used >= MAX_MONTHLY_BYTES)
         throw Object.assign(new Error("Monthly free relay budget reached."), { status: 429 });
 
+      stage = "operation";
       const result = await runOperation(request);
       const output = EJSON.stringify({ ok: true, result }, { relaxed: false });
       const approximateBytes = 2 * (Buffer.byteLength(input) + Buffer.byteLength(output)) + 8192;
@@ -251,7 +253,11 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
       json(res, status, {
         ok: false,
         error: error?.message || "MongoDB relay failed.",
-        diagnostic: errorDiagnostic(error),
+        diagnostic: {
+          ...errorDiagnostic(error),
+          stage,
+          ...(stage === "operation" ? { collection: request?.collection } : { collection: "relay_usage" }),
+        },
       });
     } finally {
       activeRequests -= 1;

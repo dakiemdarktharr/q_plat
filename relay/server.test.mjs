@@ -125,6 +125,32 @@ test("deep health endpoint checks read access and classifies auth failures", asy
   }
 });
 
+test("RPC diagnostics identify relay usage reads without exposing messages", async () => {
+  failingReadUri = "mongodb://core.invalid";
+  try {
+    const signed = signedRequest({
+      database: "q_plat",
+      collection: "workspaces",
+      operation: "ping",
+      args: [],
+    });
+    const response = await fetch(`${base}/rpc`, {
+      method: "POST",
+      headers: signed.headers,
+      body: signed.body,
+    });
+    assert.equal(response.status, 500);
+    const body = await response.json();
+    assert.equal(body.diagnostic.stage, "usage");
+    assert.equal(body.diagnostic.collection, "relay_usage");
+    assert.equal(body.diagnostic.code, "8000");
+    assert.equal(body.diagnostic.kind, "authentication");
+    assert.equal("Atlas unavailable" in body, false);
+  } finally {
+    failingReadUri = null;
+  }
+});
+
 test("RPC allows a signed health ping through the core database only", async () => {
   const signed = signedRequest({
     database: "q_plat",
