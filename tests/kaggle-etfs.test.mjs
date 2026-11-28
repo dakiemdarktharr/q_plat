@@ -7,6 +7,7 @@ import {
   KAGGLE_ETF_SOURCE,
   kaggleEtfPanelMeta,
   parseKaggleEtfCsv,
+  screenKaggleEtfCsv,
 } from "../lib/kaggle-etfs.mjs";
 import { kaggleFileDownloadUrl } from "../lib/kaggle-download.mjs";
 import {
@@ -64,6 +65,11 @@ test("ETF quality gates reject thin histories, illiquid assets, invalid dates an
   assert.throws(
     () => parseKaggleEtfCsv(syntheticCsv().replaceAll(",4000,", ",1,"), "THIN"),
     /liquidity/,
+  );
+  assert.throws(
+    () =>
+      screenKaggleEtfCsv(syntheticCsv().replaceAll(",4000,", ",0,"), "ZERO"),
+    (error) => /volume/.test(error.message) && error.unsuitable === true,
   );
   const records = syntheticCsv().split("\n");
   [records[1], records[2]] = [records[2], records[1]];
