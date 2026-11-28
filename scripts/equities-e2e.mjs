@@ -97,6 +97,48 @@ try {
     password: randomBytes(24).toString("base64url"),
     create: true,
   });
+  const reference = [];
+  for (const asset of technology.assets) {
+    const w = await api("window", null, {
+      version: technology._id,
+      asset,
+      from: "2017-11-01",
+      to: "2017-12-29",
+    });
+    assert.equal(w.table.at(-1).date, "2017-12-29");
+    const prices = w.table.slice(-21).map((r) => r.close);
+    assert.equal(prices.length, 21);
+    const returns = prices.slice(1).map((p, i) => p / prices[i] - 1);
+    const average = returns.reduce((a, b) => a + b, 0) / 20;
+    reference.push({
+      asset,
+      move: prices[20] / prices[0] - 1,
+      risk: Math.sqrt(returns.reduce((s, r) => s + (r - average) ** 2, 0) / 19),
+    });
+  }
+  const percentile = (key, value) =>
+    (reference.filter((r) => r[key] < value).length +
+      (reference.filter((r) => r[key] === value).length - 1) / 2) /
+    5;
+  for (const r of reference) {
+    const actual = await api("validate", {
+      code,
+      datasetVersion: technology._id,
+      asset: r.asset,
+      date: "2017-12-29",
+    });
+    assert.ok(Math.abs(actual.variables.move - r.move) < 1e-12);
+    assert.ok(Math.abs(actual.variables.risk - r.risk) < 1e-12);
+    assert.ok(
+      Math.abs(
+        actual.variables.score -
+          (percentile("move", r.move) - 0.25 * percentile("risk", r.risk)),
+      ) < 1e-12,
+    );
+  }
+  pass(
+    "real equity intermediate variables and cross-sectional ranks match an independent calculation",
+  );
   const runs = [];
   for (let start = 0; start < versions.length; start += 2) {
     const batch = versions.slice(start, start + 2);

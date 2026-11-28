@@ -8,7 +8,7 @@ Write an edge or select an editable example, then **Run edge**. A private guest 
 
 The [interaction review](docs/interaction-review.md) records the seven official references, evidence limitations, design decisions and state-by-state verification targets. Authenticated reference applications were not falsely claimed as tested.
 
-**Equities:** ten [historical sector research panels](docs/equity-datasets.md), each with six selected US stocks and daily adjusted OHLCV for 2012–2017. Choose **US equities / …** in the dataset selector. Original prices, dividends, splits, quarantine reasons and hashes are inspectable in Data/Sources and through the API/MCP. All ten use one frozen public-domain WIKI archive; they are not ETF data, independent vendor feeds, current quotes or survivorship-free universes. Read the source's discontinued-service/data-quality warning before interpreting results.
+**Equities:** ten [historical sector research panels](docs/equity-datasets.md), each with six selected US stocks and daily adjusted OHLCV for 2012–2017. Choose **US equities / …** in the dataset selector. Bounded API/MCP windows and run source traces expose original prices, dividends and splits; Sources shows quarantine reasons, calendar gaps and hashes. All ten use one frozen public-domain WIKI archive; they are not ETF data, independent vendor feeds, current quotes or survivorship-free universes. Read the source's discontinued-service/data-quality warning before interpreting results.
 
 ## Run and verify
 
