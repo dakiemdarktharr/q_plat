@@ -43,6 +43,8 @@ Keep the token in the client's secret/environment settings, outside version cont
 
 [OpenAPI 3.1 schema](https://q-plat.vercel.app/openapi.json) describes `POST /api/v1/{tool}`. Every operation takes a JSON body; read tools use `{}` when no arguments are needed. Set the same bearer header. Responses are `no-store`. A research job returns HTTP 202 with a job ID; poll `job_status` until completion before reading `read_report`. Results appear in **Runs** on the website after Refresh; saved code appears under **Saved edges & version diff**.
 
+`job_status({id})` returns `jobs[0].progress` with `percent`, `stage`, `elapsedSeconds` and, during persistence, `completed`/`total` chunk counts. Poll every 1–3 seconds. Percentages are weighted work stages, not predicted remaining time; 100 means the run is verified and committed. Cancelled/failed jobs stay below 100. An older job with no measurable checkpoint may return `percent: null`. The website uses the same contract and refreshes Runs automatically while jobs are active.
+
 ```javascript
 const response = await fetch('https://q-plat.vercel.app/api/v1/catalog', {
   method: 'POST',
