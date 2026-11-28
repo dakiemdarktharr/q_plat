@@ -95,8 +95,9 @@ async function handle(request) {
         console.error(
           "q_plat database health check failed",
           error.stage || error.name || "Error",
+          error.collection || "-",
+          error.kind || error.relayStatus || error.code || "-",
           Number.isInteger(error.status) ? error.status : "-",
-          error.collection || error.kind || error.relayStatus || error.code || "-",
         );
         database =
           process.env.MONGODB_RELAY_URL ||
@@ -958,7 +959,8 @@ async function handle(request) {
         "q_plat API failure",
         op,
         e.stage || e.name || "Error",
-        e.collection || e.kind || e.code || "-",
+        e.collection || "-",
+        e.kind || e.code || "-",
         e.relayStatus || (Number.isInteger(e.status) ? e.status : "-"),
       );
     return json(
