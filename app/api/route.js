@@ -15,6 +15,7 @@ import {
   guestSession,
 } from "../../lib/auth.mjs";
 import { CATALOG, OPTIONAL_SOURCES } from "../../lib/catalog.mjs";
+import { EQUITY_BUNDLE } from "../../lib/equity-catalog.mjs";
 import { parse, evaluate, makePanel } from "../../lib/dsl.mjs";
 import { validateConfig, ENGINE_VERSION } from "../../lib/engine.mjs";
 import { aggregateBars, distribution } from "../../lib/window.mjs";
@@ -288,7 +289,8 @@ async function handle(request) {
     if (op === "import" && request.method === "POST") {
       if (!owner(request)) throw httpError("Owner access required.", 403);
       const b = await bodyOf(request);
-      if (!CATALOG[b.dataset]) throw httpError("Unknown catalog source.");
+      if (!CATALOG[b.dataset] && b.dataset !== EQUITY_BUNDLE)
+        throw httpError("Unknown catalog source.");
       await rateLimit(database, "owner:import", 4);
       const id = randomUUID();
       await database.collection("jobs").insertOne({
@@ -360,16 +362,14 @@ async function handle(request) {
     }
     if (s.guest && ["run", "retry"].includes(op) && request.method === "POST") {
       // Atomic lifetime quota; guest sessions cannot consume unbounded cloud jobs.
-      const quota = await database
-        .collection("workspaces")
-        .updateOne(
-          {
-            _id: s.workspace,
-            guest: true,
-            $or: [{ runs: { $lt: 3 } }, { runs: { $exists: false } }],
-          },
-          { $inc: { runs: 1 } },
-        );
+      const quota = await database.collection("workspaces").updateOne(
+        {
+          _id: s.workspace,
+          guest: true,
+          $or: [{ runs: { $lt: 3 } }, { runs: { $exists: false } }],
+        },
+        { $inc: { runs: 1 } },
+      );
       if (!quota.modifiedCount)
         throw httpError(
           "Save your workspace to run more than three experiments.",

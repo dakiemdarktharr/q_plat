@@ -1,0 +1,24 @@
+# Equity research panels
+
+Ten curated six-stock universes, all sourced from the same frozen Quandl WIKI Prices archive. These are ten research panels, not ten independent vendors, ETF datasets, official sector-index histories or survivorship-free universes.
+
+| Dataset | Symbols |
+|---|---|
+| Technology | AAPL, MSFT, INTC, CSCO, ORCL, IBM |
+| Financials | JPM, BAC, WFC, C, GS, MS |
+| Healthcare | JNJ, PFE, MRK, ABT, AMGN, GILD |
+| Consumer discretionary | AMZN, HD, MCD, NKE, SBUX, LOW |
+| Consumer staples | KO, PEP, PG, WMT, COST, CL |
+| Energy | XOM, CVX, COP, SLB, EOG, OXY |
+| Industrials | CAT, DE, MMM, HON, UPS, UNP |
+| Utilities | DUK, SO, D, AEP, EXC, XEL |
+| Materials | APD, ECL, FCX, NEM, NUE, EMN |
+| Real estate | AMT, SPG, PLD, PSA, AVB, EQR |
+
+Requested observation interval: 2012-01-01 to 2017-12-31. Admission requires all six symbols, at least 1,400 observations per symbol, at least 97% coverage relative to the panel's observed calendar, unique symbol/date keys, finite positive OHLC, nonnegative volume, valid bar ranges, consistent price adjustment factors and no unexplained adjusted one-day move over 50%. These structural checks cannot establish the correctness of every vendor observation.
+
+[Nasdaq's WIKI description](https://data.nasdaq.com/databases/WIKIP) identifies the archive as public domain, but also says it stopped being maintained in 2018 and is not recommended for investment or analysis. We retain that warning in every panel's metadata. This is a constrained historical research resource, not an institutional-quality or current production trading feed. [Kaggle mirror](https://www.kaggle.com/datasets/marketneutral/quandl-wiki-prices-us-equites), frozen version 1, supplies the original WIKI_PRICES.csv; source and normalized SHA-256 hashes accompany the snapshots.
+
+Publisher-adjusted OHLCV feeds the existing daily engine. Original OHLCV, cash dividends, split ratios and adjustment factors remain in Atlas for inspection. Adjusted-unit account simulation approximates distribution reinvestment: do not pay dividends again. Adjusted prices are not historical executable dollar prices. Open timestamps use New York DST; daily close availability is a conservative 23:59:59 UTC proxy. Revised/back-adjusted history is not point-in-time data. The selected surviving-stock universes, daily-bar fills and small cross-sections limit inference.
+
+The cloud-only importer streams the compressed archive through bounded decompression in RAM, retains only the selected symbols/years, validates every panel before publishing any, and writes content-addressed snapshots to Atlas. No archive, CSV, cache or market-data file is written to the user's computer. Repeating `node scripts/admin.mjs import wiki_sectors` reuses verified ready snapshots. Only the owner can trigger ingestion; the ready datasets use the existing bounded web/API/MCP interfaces.
