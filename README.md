@@ -8,9 +8,13 @@ Write an edge or select an editable example, then **Run edge**. A private guest 
 
 The [interaction review](docs/interaction-review.md) records the seven official references, evidence limitations, design decisions and state-by-state verification targets. Authenticated reference applications were not falsely claimed as tested.
 
+**Equities:** ten [historical sector research panels](docs/equity-datasets.md), each with six selected US stocks and daily adjusted OHLCV for 2012–2017. Choose **US equities / …** in the dataset selector. Original prices, dividends, splits, quarantine reasons and hashes are inspectable in Data/Sources and through the API/MCP. All ten use one frozen public-domain WIKI archive; they are not ETF data, independent vendor feeds, current quotes or survivorship-free universes. Read the source's discontinued-service/data-quality warning before interpreting results.
+
 ## Run and verify
 
 Node 22+. `npm ci`, `npm test`, `npm run build`. Only generated numeric fixtures run locally. Never download market data or run ingestion locally. Ingestion refuses to execute outside a Vercel deployment. `npm run test:e2e` runs the actual production UI in disposable Chromium contexts; install Chromium with `npx playwright install chromium` first. It prints only assertion names/counts/hashes, with no HAR, trace, screenshots or market payload artifacts.
+
+`node scripts/equities-e2e.mjs` checks all ten ready equity snapshots, a split audit, full-history custom-edge runs, reproducibility, robustness, MCP access and the web/mobile result journey. It creates real private test runs on Atlas and prints scalar evidence only. Owner command `node scripts/admin.mjs import wiki_sectors` imports the bundle in cloud or verifies existing ready counts; it does not download datasets to the invoking machine.
 
 Production environment: `MONGODB_URI`, `MONGODB_DB=q_plat`, `OWNER_KEY`, `APP_ORIGIN`. Secrets are server-side only. A database identity must be restricted to `readWrite` on the app database and its named test database. Do not open network access or enable paid features to work around connectivity.
 

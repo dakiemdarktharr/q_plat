@@ -15,7 +15,8 @@ import {
   guestSession,
 } from "../../lib/auth.mjs";
 import { CATALOG, OPTIONAL_SOURCES } from "../../lib/catalog.mjs";
-import { EQUITY_BUNDLE } from "../../lib/equity-catalog.mjs";
+import { EQUITY_BUNDLE, EQUITY_CATALOG } from "../../lib/equity-catalog.mjs";
+import { EQUITY_AUDIT_VERSION } from "../../lib/equity-calendar.mjs";
 import { parse, evaluate, makePanel } from "../../lib/dsl.mjs";
 import { validateConfig, ENGINE_VERSION } from "../../lib/engine.mjs";
 import { aggregateBars, distribution } from "../../lib/window.mjs";
@@ -131,7 +132,14 @@ async function handle(request) {
     if (op === "catalog" && request.method === "GET") {
       const versions = await database
         .collection("dataset_versions")
-        .find({ status: "ready" })
+        .find({
+          status: "ready",
+          supersededBy: { $exists: false },
+          $or: [
+            { dataset: { $nin: Object.keys(EQUITY_CATALOG) } },
+            { "quantAudit.version": EQUITY_AUDIT_VERSION },
+          ],
+        })
         .sort({ createdAt: -1 })
         .limit(30)
         .toArray();

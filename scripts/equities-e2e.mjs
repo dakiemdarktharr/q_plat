@@ -7,6 +7,7 @@ import {
 import { randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
 import { EQUITY_CATALOG } from "../lib/equity-catalog.mjs";
+import { EQUITY_AUDIT_VERSION } from "../lib/equity-calendar.mjs";
 
 const base = process.env.BASE_URL || "https://q-plat.vercel.app";
 const browser = await chromium.launch({ headless: true });
@@ -53,6 +54,8 @@ try {
     assert.equal(v.assets.length, 6);
     assert.ok(v.count >= 8400 && v.sessions >= 1400);
     assert.equal(v.quantAudit.largeMoves, 0);
+    assert.equal(v.quantAudit.version, EQUITY_AUDIT_VERSION);
+    assert.equal(v.quantAudit.expectedSessions, 1509);
     assert.match(v.sourceArtifact.sha256, /^[a-f0-9]{64}$/);
     assert.equal(v.meta.reality, "Real");
     return v;

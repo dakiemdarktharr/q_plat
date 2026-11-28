@@ -7,6 +7,7 @@ import {
   readEquityArchive,
 } from "../lib/equities.mjs";
 import { EQUITY_CATALOG } from "../lib/equity-catalog.mjs";
+import { EQUITY_SESSIONS, isEquitySession } from "../lib/equity-calendar.mjs";
 const header = equityHeader(
   "ticker,date,open,high,low,close,volume,ex-dividend,split_ratio,adj_open,adj_high,adj_low,adj_close,adj_volume",
 );
@@ -60,9 +61,9 @@ test("quality gates bound quarantines and keep large-return failures visible", (
   const meta = EQUITY_CATALOG.wiki_technology;
   // Synthetic structural fixture only: no market data is stored locally.
   const rows = meta.symbols.flatMap((asset) =>
-    Array.from({ length: 1400 }, (_, i) => ({
+    EQUITY_SESSIONS.map((date) => ({
       asset,
-      date: new Date(Date.UTC(2012, 0, i + 1)).toISOString().slice(0, 10),
+      date,
       close: 100,
       cashDividend: 0,
       splitRatio: 1,
@@ -82,5 +83,23 @@ test("quality gates bound quarantines and keep large-return failures visible", (
   assert.throws(
     () => auditEquityPanel(rows, meta),
     /manual source reconciliation/,
+  );
+});
+
+test("equity exchange calendar rejects holidays, weekends and Sandy closures", () => {
+  assert.equal(EQUITY_SESSIONS.length, 1509);
+  for (const date of [
+    "2017-04-14",
+    "2012-10-29",
+    "2012-10-30",
+    "2015-07-03",
+    "2016-12-26",
+    "2014-07-05",
+  ])
+    assert.equal(isEquitySession(date), false, date);
+  assert.equal(isEquitySession("2017-11-24"), true); // Early close, still a session.
+  assert.throws(
+    () => parseEquityLine(line("2017-04-14"), header),
+    /Non-trading/,
   );
 });
