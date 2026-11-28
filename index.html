@@ -4044,9 +4044,9 @@ Compare against mean reversion.</pre>
                   state.batchLoading.clear();
                   document.body.classList.add("batch-view-active");
                   renderBatchBoard(job);
+                  screen("research");
                   if (job.status === "completed") {
                     await loadBatchPanels(job.summary?.panels || []);
-                    screen("research");
                   } else trackJob(job._id, false, job.datasets);
                 })),
           );

@@ -134,6 +134,9 @@ try {
     await page.goto(base + "/#history");
     await ready();
     await page.locator(`[data-watch-batch="${id}"]`).click();
+    await page
+      .locator("#batchBoard")
+      .waitFor({ state: "visible", timeout: 30000 });
   }
   const completedBatch = await waitBatch(id);
   await page.waitForFunction(

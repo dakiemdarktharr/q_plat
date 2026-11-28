@@ -280,6 +280,9 @@ try {
   const firstBatch = await waitBatch(batchId);
   await page.locator("#refreshHistory").click();
   await page.locator(`[data-watch-batch="${batchId}"]`).click();
+  await page
+    .locator("#batchBoard")
+    .waitFor({ state: "visible", timeout: 30000 });
   await page.waitForFunction(
     () =>
       document.querySelectorAll("#batchGrid .batch-panel").length === 6 &&
