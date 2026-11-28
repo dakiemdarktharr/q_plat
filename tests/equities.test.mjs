@@ -55,3 +55,32 @@ test("equity archive refuses to download in a local process", async () => {
   if (!process.env.VERCEL_DEPLOYMENT_ID)
     await assert.rejects(readEquityArchive(), /cloud-only/);
 });
+
+test("quality gates bound quarantines and keep large-return failures visible", () => {
+  const meta = EQUITY_CATALOG.wiki_technology;
+  // Synthetic structural fixture only: no market data is stored locally.
+  const rows = meta.symbols.flatMap((asset) =>
+    Array.from({ length: 1400 }, (_, i) => ({
+      asset,
+      date: new Date(Date.UTC(2012, 0, i + 1)).toISOString().slice(0, 10),
+      close: 100,
+      cashDividend: 0,
+      splitRatio: 1,
+    })),
+  );
+  const rejected = Array.from({ length: 7 }, (_, i) => ({
+    asset: "AAPL",
+    date: "fixture-" + i,
+    reason: "bad bar",
+  }));
+  assert.equal(auditEquityPanel(rows, meta, rejected).rejectedCount, 7);
+  assert.throws(
+    () => auditEquityPanel(rows, meta, [...rejected, rejected[0]]),
+    /Too many invalid/,
+  );
+  rows[100].close = 200;
+  assert.throws(
+    () => auditEquityPanel(rows, meta),
+    /manual source reconciliation/,
+  );
+});
