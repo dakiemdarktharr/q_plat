@@ -1834,6 +1834,7 @@ Save or load a version to compare with the editor.</pre>
                       aria-label="IC heatmap by time"
                       id="heatChart"
                       role="img"
+                      title="Select a cell to evaluate its horizon"
                     ></canvas>
                   </div>
                 </div>
@@ -2233,11 +2234,15 @@ Compare against mean reversion.</pre>
           );
         return data;
       }
+      let noticeTimer;
       function notice(message, type = "") {
+        clearTimeout(noticeTimer);
         const el = $("notice");
         el.textContent = message;
         el.className = "banner " + type;
         el.hidden = false;
+        if (type === "ok")
+          noticeTimer = setTimeout(() => (el.hidden = true), 6000);
       }
       async function action(button, fn) {
         button.disabled = true;
@@ -3854,11 +3859,7 @@ Compare against mean reversion.</pre>
           rowHeight = (h - 28) / 4;
         ctx.font = "10px Segoe UI";
         ctx.fillStyle = "#a5a1b5";
-        ctx.fillText(
-          "IC time × horizon, click a cell to evaluate that horizon",
-          10,
-          12,
-        );
+        ctx.fillText("IC by horizon", 10, 12);
         horizons.forEach((horizon, row) => {
           ctx.fillStyle = "#a5a1b5";
           ctx.fillText("h=" + horizon, 4, 28 + row * rowHeight + rowHeight / 2);
