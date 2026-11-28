@@ -2958,7 +2958,56 @@ Compare against mean reversion.</pre>
             .join(""),
           cohorts = state.versions.filter((v) =>
             v.dataset.startsWith("wiki_sp500_"),
+          ),
+          etfPanels = state.versions.filter((v) =>
+            v.dataset.startsWith("kaggle_etf_"),
           );
+        const objectiveGroups = new Map();
+        for (const version of etfPanels) {
+          const key = version.meta.objective || "ETF research";
+          if (!objectiveGroups.has(key)) objectiveGroups.set(key, []);
+          objectiveGroups.get(key).push(version);
+        }
+        const etfSection = etfPanels.length
+          ? '<section class="below"><h2>ETF panels by objective</h2>' +
+            [...objectiveGroups]
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(
+                ([objective, versions]) =>
+                  "<details><summary>" +
+                  esc(objective) +
+                  " / " +
+                  versions.length.toLocaleString() +
+                  "</summary><div class=\"table-wrap\"><table><thead><tr><th>Panel</th><th>Symbols</th><th>Observations</th><th>Coverage</th><th>Median dollar volume</th></tr></thead><tbody>" +
+                  versions
+                    .sort((a, b) => a.meta.panelNumber - b.meta.panelNumber)
+                    .map(
+                      (v) =>
+                        "<tr><td>" +
+                        esc(v.meta.name) +
+                        "</td><td>" +
+                        esc((v.assets || v.meta.symbols || []).join(", ")) +
+                        "</td><td>" +
+                        Number(v.count || 0).toLocaleString() +
+                        "</td><td>" +
+                        (100 * Number(v.quantAudit?.minimumCoverage || 0)).toFixed(2) +
+                        "%</td><td>" +
+                        esc(
+                          Object.values(
+                            v.quantAudit?.medianDollarVolumeByAsset || {},
+                          )
+                            .sort((a, b) => a - b)[0]
+                            ?.toLocaleString("en-US", { maximumFractionDigits: 0 }) ||
+                            "—",
+                        ) +
+                        "</td></tr>",
+                    )
+                    .join("") +
+                  "</tbody></table></div></details>",
+              )
+              .join("") +
+            "</section>"
+          : "";
         const cohortSection = cohorts.length
           ? '<section class="below"><h2>US equity cohorts</h2><details><summary>' +
             cohorts.length.toLocaleString() +
@@ -2992,6 +3041,7 @@ Compare against mean reversion.</pre>
           : "";
         $("catalogCards").innerHTML =
           sourceSections +
+          etfSection +
           cohortSection +
           catalog.optional
             .map(

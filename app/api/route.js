@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { ObjectId } from "bson";
 import { start } from "workflow/api";
 import { researchWorkflow } from "../../workflows/research.js";
-import { db, schema, hash } from "../../lib/db.mjs";
+import { db, schema, hash, migrateAtlasOperation } from "../../lib/db.mjs";
 import {
   session,
   login,
@@ -80,6 +81,38 @@ async function handle(request) {
     headers = isPublic ? { "Access-Control-Allow-Origin": "*" } : {};
   try {
     if (request.method !== "GET") sameOrigin(request);
+    if (op === "migrate-atlas" && request.method === "POST") {
+      if (!owner(request)) throw httpError("Owner access is required.", 403);
+      const input = await bodyOf(request);
+      if (input.phase === "metadata") {
+        const result = await migrateAtlasOperation("migrateCoreMetadata");
+        return json({ phase: "metadata", copied: result.copied, bytes: result.bytes });
+      }
+      if (input.phase === "chunks") {
+        let cursor = input.cursor ? new ObjectId(input.cursor) : null;
+        let copied = 0;
+        let bytes = 0;
+        let done = false;
+        for (let batch = 0; batch < 8 && !done; batch++) {
+          const result = await migrateAtlasOperation("migrateResultBatch", {
+            ...(cursor ? { cursor } : {}),
+            batchSize: 128,
+          });
+          copied += result.copied;
+          bytes += result.bytes;
+          done = result.done;
+          cursor = result.cursor || cursor;
+        }
+        return json({
+          phase: "chunks",
+          copied,
+          bytes,
+          done,
+          cursor: cursor?.toHexString() || null,
+        });
+      }
+      throw httpError("Choose a migration phase.");
+    }
     if (op === "health") {
       if (request.method !== "GET") throw httpError("Method not allowed.", 405);
       let database = "unconfigured";
@@ -90,6 +123,18 @@ async function handle(request) {
         await d
           .collection("dataset_versions")
           .findOne({ _id: "__health_probe__" });
+        await d
+          .collection("bars")
+          .findOne({ version: "qt70a-health-probe" }, { projection: { _id: 1 } });
+        await d
+          .collection("bars")
+          .findOne({ version: "qt70b-health-probe" }, { projection: { _id: 1 } });
+        await d
+          .collection("result_chunks")
+          .findOne({ run: "__health_probe_a__" }, { projection: { _id: 1 } });
+        await d
+          .collection("result_chunks")
+          .findOne({ run: "__health_probe_b__" }, { projection: { _id: 1 } });
         database = "connected";
       } catch (error) {
         console.error(
@@ -324,6 +369,12 @@ async function handle(request) {
         b.dataset !== WIKI_COHORT_BUNDLE
       )
         throw httpError("Unknown catalog source.");
+      const activeImport = await database.collection("jobs").findOne({
+        type: "import",
+        dataset: b.dataset,
+        status: { $in: ["queued", "running", "retrying", "committing"] },
+      });
+      if (activeImport) return json({ job: activeImport._id }, 202);
       await rateLimit(database, "owner:import", 4);
       const id = randomUUID();
       await database.collection("jobs").insertOne({

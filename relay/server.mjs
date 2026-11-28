@@ -22,7 +22,25 @@ const COLLECTIONS = new Set([
   "verification",
   "workspaces",
 ]);
-const DATA_COLLECTIONS = new Set(["bars", "datasets", "dataset_versions"]);
+const SHARD_HOSTS = [
+  "qplatresults01.xui2vfx.mongodb.net",
+  "qplatresults02.f5cdfhi.mongodb.net",
+];
+const CORE_METADATA_COLLECTIONS = [
+  "api_tokens",
+  "dataset_ingest_plans",
+  "edge_versions",
+  "edges",
+  "jobs",
+  "ledger_events",
+  "rate_limits",
+  "relay_usage",
+  "run_series",
+  "runs",
+  "sessions",
+  "verification",
+  "workspaces",
+];
 const OPERATIONS = new Set([
   "bulkWrite",
   "countDocuments",
@@ -114,11 +132,45 @@ function mongoTarget(database, collection, env) {
     throw Object.assign(new Error("Database is not allowed."), { status: 403 });
   if (!COLLECTIONS.has(collection))
     throw Object.assign(new Error("Collection is not allowed."), { status: 403 });
-  const uri = DATA_COLLECTIONS.has(collection)
-    ? env.MONGODB_DATA_URI || env.MONGODB_CORE_URI
-    : env.MONGODB_CORE_URI || env.MONGODB_DATA_URI;
+  const uri = env.MONGODB_DATA_URI || env.MONGODB_CORE_URI;
   if (!uri) throw Object.assign(new Error("Atlas URI is not configured."), { status: 503 });
   return { uri, database };
+}
+
+function resultShard(run) {
+  if (typeof run !== "string" || !run)
+    throw Object.assign(new Error("A run ID is required for result storage."), { status: 400 });
+  return Number.parseInt(createHash("sha256").update(run).digest("hex").at(-1), 16) & 1;
+}
+
+function barVersion(request) {
+  if (request.operation === "find") return request.filter?.version;
+  if (request.operation === "findOne") return request.args?.[0]?.version;
+  if (request.operation === "bulkWrite") {
+    const operation = request.args?.[0]?.[0];
+    return operation?.updateOne?.filter?.version || operation?.replaceOne?.filter?.version || operation?.deleteOne?.filter?.version;
+  }
+  return request.args?.[0]?.version;
+}
+
+function resultRun(request) {
+  if (request.operation === "find") return request.filter?.run;
+  if (request.operation === "findOne") return request.args?.[0]?.run;
+  if (request.operation === "bulkWrite") {
+    const operation = request.args?.[0]?.[0];
+    return operation?.updateOne?.filter?.run || operation?.replaceOne?.filter?.run || operation?.deleteOne?.filter?.run;
+  }
+  return request.args?.[0]?.run;
+}
+
+function checkedShardUri(uri, shard) {
+  if (typeof uri !== "string")
+    throw Object.assign(new Error("Result storage is not configured."), { status: 503 });
+  let host = "";
+  try { host = new URL(uri).hostname.toLowerCase(); } catch {}
+  if (host !== SHARD_HOSTS[shard])
+    throw Object.assign(new Error("Result storage target is not allowed."), { status: 403 });
+  return uri;
 }
 
 export function createRelayServer({ env = process.env, Client = MongoClient } = {}) {
@@ -165,9 +217,141 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
     return usageQueue;
   }
 
-  async function runOperation(request) {
+  async function copyCoreMetadata(database, quota) {
+    const sourceUri = env.MONGODB_CORE_URI;
+    const targetUri = env.MONGODB_DATA_URI || env.MONGODB_CORE_URI;
+    if (!sourceUri || !targetUri || sourceUri === targetUri)
+      throw Object.assign(new Error("Atlas archive and active targets are not configured."), { status: 503 });
+    const source = (await clientFor(sourceUri)).db(database);
+    const target = (await clientFor(targetUri)).db(database);
+    const copied = {};
+    let bytes = 0;
+    const snapshots = new Map();
+    for (const name of CORE_METADATA_COLLECTIONS) {
+      const docs = await source.collection(name).find({}).toArray();
+      snapshots.set(name, docs);
+      copied[name] = docs.length;
+      bytes += docs.reduce((total, doc) => total + Buffer.byteLength(EJSON.stringify(doc, { relaxed: false })), 0);
+    }
+    const relayBytes = Math.max(0, bytes * 2);
+    if (quota.used + relayBytes >= MAX_MONTHLY_BYTES)
+      throw Object.assign(new Error("Monthly free relay budget reached."), { status: 429 });
+    for (const name of CORE_METADATA_COLLECTIONS) {
+      const docs = snapshots.get(name);
+      if (!docs?.length) continue;
+      if (name === "relay_usage") {
+        await target.collection(name).bulkWrite(docs.map((doc) => ({
+          updateOne: {
+            filter: { _id: doc._id },
+            update: { $max: { bytes: Number(doc.bytes || 0) }, $set: { updatedAt: doc.updatedAt || new Date() } },
+            upsert: true,
+          },
+        })), { ordered: false });
+      } else {
+        await target.collection(name).bulkWrite(docs.map((doc) => ({
+          replaceOne: { filter: { _id: doc._id }, replacement: doc, upsert: true },
+        })), { ordered: false });
+      }
+    }
+    await countUsage(quota.coreClient, quota.month, relayBytes);
+    return { copied, bytes };
+  }
+
+  async function ensureResultIndexes(uri, database) {
+    const collection = (await clientFor(uri)).db(database).collection("result_chunks");
+    await collection.createIndex({ run: 1, kind: 1, asset: 1, bucket: 1 }, { unique: true });
+    await collection.createIndex({ run: 1, kind: 1, startDate: 1, endDate: 1 });
+  }
+
+  async function migrateResultBatch(request, quota) {
+    const sourceUri = env.MONGODB_CORE_URI;
+    if (!sourceUri)
+      throw Object.assign(new Error("Atlas archive is not configured."), { status: 503 });
+    const args = request.args?.[0] || {};
+    const batchSize = Math.max(1, Math.min(128, Number(args.batchSize) || 128));
+    const targetUris = request.targetUris;
+    if (!Array.isArray(targetUris) || targetUris.length !== 2)
+      throw Object.assign(new Error("Both result targets are required."), { status: 503 });
+    const uris = targetUris.map((uri, shard) => checkedShardUri(uri, shard));
+    const source = (await clientFor(sourceUri)).db(request.database).collection("result_chunks");
+    const query = args.cursor ? { _id: { $gt: args.cursor } } : {};
+    const records = await source.find(query).sort({ _id: 1 }).limit(batchSize).toArray();
+    if (!records.length) return { copied: 0, bytes: 0, done: true, cursor: null };
+
+    const chosen = [];
+    let bytes = 0;
+    for (const doc of records) {
+      const size = Buffer.byteLength(EJSON.stringify(doc, { relaxed: false }));
+      if (chosen.length && bytes + size > 8 * 1024 * 1024) break;
+      chosen.push(doc);
+      bytes += size;
+    }
+    const byShard = [[], []];
+    for (const doc of chosen) byShard[resultShard(doc.run)].push(doc);
+    const relayBytes = Math.max(0, bytes * 2);
+    if (quota.used + relayBytes >= MAX_MONTHLY_BYTES)
+      throw Object.assign(new Error("Monthly free relay budget reached."), { status: 429 });
+    for (let shard = 0; shard < byShard.length; shard++) {
+      const docs = byShard[shard];
+      if (!docs.length) continue;
+      await ensureResultIndexes(uris[shard], request.database);
+      const collection = (await clientFor(uris[shard])).db(request.database).collection("result_chunks");
+      await collection.bulkWrite(docs.map((doc) => ({
+        replaceOne: { filter: { _id: doc._id }, replacement: doc, upsert: true },
+      })), { ordered: false });
+      const ids = docs.map((doc) => doc._id);
+      const stored = await collection.find({ _id: { $in: ids } }, {
+        projection: { _id: 1, run: 1, kind: 1, asset: 1, bucket: 1, count: 1, checksum: 1 },
+      }).toArray();
+      const checks = new Map(stored.map((doc) => [String(doc._id), doc]));
+      if (stored.length !== docs.length || docs.some((doc) => {
+        const got = checks.get(String(doc._id));
+        return !got || got.run !== doc.run || got.kind !== doc.kind || got.asset !== doc.asset ||
+          got.bucket !== doc.bucket || got.count !== doc.count || got.checksum !== doc.checksum;
+      }))
+        throw Object.assign(new Error("Result batch readback did not match its source."), { status: 500 });
+    }
+    await countUsage(quota.coreClient, quota.month, relayBytes);
+    return {
+      copied: chosen.length,
+      bytes,
+      done: chosen.length === records.length && records.length < batchSize,
+      cursor: chosen.at(-1)._id,
+    };
+  }
+
+  async function runOperation(request, quota) {
     const { database, collection: collectionName, operation } = request;
-    const { uri } = mongoTarget(database, collectionName, env);
+    if (operation === "migrateCoreMetadata") return copyCoreMetadata(database, quota);
+    if (operation === "migrateResultBatch") return migrateResultBatch(request, quota);
+    if (collectionName === "result_chunks" && operation === "createIndex") {
+      if (!Array.isArray(request.targetUris) || request.targetUris.length !== 2)
+        throw Object.assign(new Error("Both result targets are required."), { status: 503 });
+      const uris = request.targetUris.map((uri, shard) => checkedShardUri(uri, shard));
+      return Promise.all(uris.map(async (uri) =>
+        (await clientFor(uri)).db(database).collection(collectionName).createIndex(...request.args),
+      ));
+    }
+    if (collectionName === "bars" && operation === "createIndex") {
+      if (!Array.isArray(request.targetUris) || request.targetUris.length !== 2)
+        throw Object.assign(new Error("Both dataset shards are required."), { status: 503 });
+      const dataUri = env.MONGODB_DATA_URI || env.MONGODB_CORE_URI;
+      if (!dataUri)
+        throw Object.assign(new Error("Active dataset storage is not configured."), { status: 503 });
+      const uris = [dataUri, ...request.targetUris.map((uri, shard) => checkedShardUri(uri, shard))];
+      return Promise.all(uris.map(async (uri) =>
+        (await clientFor(uri)).db(database).collection(collectionName).createIndex(...request.args),
+      ));
+    }
+    let uri;
+    if (collectionName === "result_chunks") {
+      const shard = resultShard(resultRun(request));
+      uri = checkedShardUri(request.targetUri, shard);
+    } else if (collectionName === "bars" && /^qt70[ab]-/.test(barVersion(request) || "")) {
+      const version = barVersion(request);
+      const shard = version.startsWith("qt70a-") ? 0 : 1;
+      uri = checkedShardUri(request.targetUri, shard);
+    } else ({ uri } = mongoTarget(database, collectionName, env));
     const selected = await clientFor(uri);
     const collection = selected.db(database).collection(collectionName);
     if (operation === "ping") return selected.db(database).command({ ping: 1 });
@@ -235,7 +419,7 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
         throw Object.assign(new Error("Monthly free relay budget reached."), { status: 429 });
 
       stage = "operation";
-      const result = await runOperation(request);
+      const result = await runOperation(request, { coreClient, month, used });
       const output = EJSON.stringify({ ok: true, result }, { relaxed: false });
       const approximateBytes = 2 * (Buffer.byteLength(input) + Buffer.byteLength(output)) + 8192;
       if (used + approximateBytes >= MAX_MONTHLY_BYTES) {

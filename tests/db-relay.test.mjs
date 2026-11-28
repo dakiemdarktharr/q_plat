@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { createHash, generateKeyPairSync, verify } from "node:crypto";
 import { EJSON } from "bson";
-import { bulkUpsert, db } from "../lib/db.mjs";
+import { bulkUpsert, db, migrateAtlasOperation } from "../lib/db.mjs";
 
 const keys = generateKeyPairSync("ed25519");
 const privateKey = keys.privateKey.export({ format: "der", type: "pkcs8" }).toString("base64");
-const envKeys = ["MONGODB_RELAY_URL", "MONGODB_RELAY_PRIVATE_KEY", "MONGODB_URI"];
+const envKeys = ["MONGODB_RELAY_URL", "MONGODB_RELAY_PRIVATE_KEY", "MONGODB_URI", "MONGODB_SHARD_URI_A", "MONGODB_SHARD_URI_B"];
 const previous = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
 process.env.MONGODB_RELAY_URL = "https://relay.example.test";
 process.env.MONGODB_RELAY_PRIVATE_KEY = privateKey;
+process.env.MONGODB_SHARD_URI_A = "mongodb+srv://user:pass@qplatresults01.xui2vfx.mongodb.net";
+process.env.MONGODB_SHARD_URI_B = "mongodb+srv://user:pass@qplatresults02.f5cdfhi.mongodb.net";
 delete process.env.MONGODB_URI;
 const originalFetch = globalThis.fetch;
 let captured;
@@ -101,6 +103,7 @@ test("database relay learns a smaller page size for large result chunks", async 
       .limit(145)
       .toArray();
     assert.equal(rows.length, 145);
+    assert.match(capturedRequests[0].targetUri, /^mongodb\+srv:\/\/user:pass@qplatresults0[12]\.\w+\.mongodb\.net$/);
     assert.deepEqual(
       capturedRequests.slice(0, 3).map(({ skip, limit }) => [skip, limit]),
       [[0, 64], [0, 32], [0, 16]],
@@ -110,6 +113,52 @@ test("database relay learns a smaller page size for large result chunks", async 
     pagedRows = null;
     responseTooLargeAbove = null;
   }
+});
+
+test("result index requests carry both private Atlas targets for replica creation", async () => {
+  capturedRequests = [];
+  const database = await db();
+  await database.collection("result_chunks").createIndex({ run: 1, kind: 1 });
+  assert.equal(capturedRequests.length, 1);
+  assert.deepEqual(captured.request.targetUris, [
+    process.env.MONGODB_SHARD_URI_A,
+    process.env.MONGODB_SHARD_URI_B,
+  ]);
+  assert.equal(captured.request.targetUri, undefined);
+});
+
+test("new quant panel bars route by declared data shard", async () => {
+  capturedRequests = [];
+  const database = await db();
+  await database.collection("bars").find({ version: "qt70a-momentum-abc" }).limit(1).toArray();
+  assert.equal(captured.request.targetUri, process.env.MONGODB_SHARD_URI_A);
+  await database.collection("bars").find({ version: "qt70b-value-abc" }).limit(1).toArray();
+  assert.equal(captured.request.targetUri, process.env.MONGODB_SHARD_URI_B);
+  await database.collection("bars").find({ version: "uci-0353fe3533bfe8a0075e" }).limit(1).toArray();
+  assert.equal(captured.request.targetUri, undefined);
+});
+
+test("bars index requests fan out to both quant panel shards", async () => {
+  capturedRequests = [];
+  const database = await db();
+  await database.collection("bars").createIndex({ version: 1, date: 1 });
+  assert.equal(captured.request.collection, "bars");
+  assert.deepEqual(captured.request.targetUris, [
+    process.env.MONGODB_SHARD_URI_A,
+    process.env.MONGODB_SHARD_URI_B,
+  ]);
+});
+
+test("Atlas migration RPC contains only shard targets and checkpoint arguments", async () => {
+  capturedRequests = [];
+  await migrateAtlasOperation("migrateResultBatch", { batchSize: 128 });
+  assert.equal(captured.request.operation, "migrateResultBatch");
+  assert.equal(captured.request.args[0].batchSize, 128);
+  assert.deepEqual(captured.request.targetUris, [
+    process.env.MONGODB_SHARD_URI_A,
+    process.env.MONGODB_SHARD_URI_B,
+  ]);
+  assert.equal("documents" in captured.request, false);
 });
 
 test("database relay retries transient capacity errors with fresh signatures", async () => {

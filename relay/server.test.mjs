@@ -50,6 +50,12 @@ class FakeClient {
         return { ok: ping === 1 ? 1 : 0 };
       },
       collection: (collection) => ({
+        createIndex: async () => "idx",
+        find: () => ({
+          sort() { return this; },
+          limit() { return this; },
+          toArray: async () => [],
+        }),
         findOne: async () => {
           if (this.uri === failingReadUri)
             throw Object.assign(new Error("bad auth: Authentication failed."), { code: 8000 });
@@ -85,6 +91,8 @@ const relay = createRelayServer({
     MONGODB_RELAY_PUBLIC_KEY: publicKey,
     MONGODB_CORE_URI: "mongodb://core.invalid",
     MONGODB_DATA_URI: "mongodb://data.invalid",
+    MONGODB_SHARD_URI_A: "mongodb+srv://user:pass@qplatresults01.xui2vfx.mongodb.net",
+    MONGODB_SHARD_URI_B: "mongodb+srv://user:pass@qplatresults02.f5cdfhi.mongodb.net",
   },
   Client: FakeClient,
 });
@@ -102,7 +110,7 @@ test("health endpoint does not expose Atlas configuration", async () => {
   assert.deepEqual(await response.json(), { ok: true });
 });
 
-test("deep health endpoint pings both Atlas clusters", async () => {
+test("deep health endpoint pings the active Atlas cluster", async () => {
   const response = await fetch(`${base}/healthz?deep=1`);
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), {
@@ -113,7 +121,7 @@ test("deep health endpoint pings both Atlas clusters", async () => {
 });
 
 test("deep health endpoint checks read access and classifies auth failures", async () => {
-  failingReadUri = "mongodb://core.invalid";
+  failingReadUri = "mongodb://data.invalid";
   try {
     const response = await fetch(`${base}/healthz?deep=1`);
     assert.equal(response.status, 503);
@@ -129,7 +137,7 @@ test("deep health endpoint checks read access and classifies auth failures", asy
 });
 
 test("RPC diagnostics identify relay usage reads without exposing messages", async () => {
-  failingReadUri = "mongodb://core.invalid";
+  failingReadUri = "mongodb://data.invalid";
   try {
     const signed = signedRequest({
       database: "q_plat",
@@ -155,7 +163,7 @@ test("RPC diagnostics identify relay usage reads without exposing messages", asy
 });
 
 test("RPC operation failures return collection diagnostics without crashing", async () => {
-  failingCountUri = "mongodb://core.invalid";
+  failingCountUri = "mongodb://data.invalid";
   try {
     const signed = signedRequest({
       database: "q_plat",
@@ -180,7 +188,7 @@ test("RPC operation failures return collection diagnostics without crashing", as
 });
 
 test("RPC health ping failures return only sanitized diagnostics", async () => {
-  failingUri = "mongodb://core.invalid";
+  failingUri = "mongodb://data.invalid";
   try {
     const signed = signedRequest({
       database: "q_plat",
@@ -204,7 +212,7 @@ test("RPC health ping failures return only sanitized diagnostics", async () => {
   }
 });
 
-test("RPC allows a signed health ping through the core database only", async () => {
+test("RPC allows a signed health ping through the active database only", async () => {
   const signed = signedRequest({
     database: "q_plat",
     collection: "workspaces",
@@ -242,7 +250,7 @@ test("RPC limits databases before opening a MongoDB connection", async () => {
   assert.equal(clients.length, before);
 });
 
-test("RPC routes market bars to the data cluster and metadata to the core cluster", async () => {
+test("RPC routes active market and metadata collections to the data cluster", async () => {
   const request = (collection) =>
     {
       const signed = signedRequest({
@@ -265,8 +273,103 @@ test("RPC routes market bars to the data cluster and metadata to the core cluste
   assert.equal(EJSON.parse(await plans.text()).result, 7);
   assert.deepEqual(
     [...new Set(clients.map((client) => client.uri))].sort(),
-    ["mongodb://core.invalid", "mongodb://data.invalid"],
+    ["mongodb://data.invalid"],
   );
+});
+
+test("result chunks connect only to their pinned Atlas shard", async () => {
+  const run = "e2e-test-run";
+  const shard = Number.parseInt(createHash("sha256").update(run).digest("hex").at(-1), 16) & 1;
+  const targetUri = [
+    "mongodb+srv://user:pass@qplatresults01.xui2vfx.mongodb.net",
+    "mongodb+srv://user:pass@qplatresults02.f5cdfhi.mongodb.net",
+  ][shard];
+  const signed = signedRequest({
+    database: "q_plat",
+    collection: "result_chunks",
+    operation: "countDocuments",
+    targetUri,
+    args: [{ run }],
+  });
+  const response = await fetch(`${base}/rpc`, {
+    method: "POST",
+    headers: signed.headers,
+    body: signed.body,
+  });
+  assert.equal(response.status, 200);
+  assert.ok(clients.some((client) => client.uri === targetUri));
+  const before = clients.length;
+  const rejected = signedRequest({
+    database: "q_plat",
+    collection: "result_chunks",
+    operation: "countDocuments",
+    targetUri: "mongodb+srv://user:pass@untrusted.mongodb.net",
+    args: [{ run }],
+  });
+  assert.equal((await fetch(`${base}/rpc`, { method: "POST", headers: rejected.headers, body: rejected.body })).status, 403);
+  assert.equal(clients.length, before);
+});
+
+test("new quant panel bars route only to their assigned pinned shard", async () => {
+  const shards = [
+    "mongodb+srv://user:pass@qplatresults01.xui2vfx.mongodb.net",
+    "mongodb+srv://user:pass@qplatresults02.f5cdfhi.mongodb.net",
+  ];
+  for (const [version, shard] of [["qt70a-dataset-hash", 0], ["qt70b-dataset-hash", 1]]) {
+    const signed = signedRequest({
+      database: "q_plat",
+      collection: "bars",
+      operation: "countDocuments",
+      targetUri: shards[shard],
+      args: [{ version }],
+    });
+    const response = await fetch(`${base}/rpc`, {
+      method: "POST",
+      headers: signed.headers,
+      body: signed.body,
+    });
+    assert.equal(response.status, 200);
+    assert.ok(clients.some((client) => client.uri === shards[shard]));
+  }
+  const signed = signedRequest({
+    database: "q_plat",
+    collection: "bars",
+    operation: "createIndex",
+    targetUris: [
+      "mongodb+srv://user:pass@qplatresults01.xui2vfx.mongodb.net",
+      "mongodb+srv://user:pass@qplatresults02.f5cdfhi.mongodb.net",
+    ],
+    args: [{ version: 1, date: 1 }],
+  });
+  const response = await fetch(`${base}/rpc`, {
+    method: "POST",
+    headers: signed.headers,
+    body: signed.body,
+  });
+  assert.equal(response.status, 200);
+  assert.ok(clients.some((client) => client.uri === "mongodb://data.invalid"));
+});
+
+test("migration batches read from the archived core inside the relay", async () => {
+  const signed = signedRequest({
+    database: "q_plat",
+    collection: "result_chunks",
+    operation: "migrateResultBatch",
+    targetUris: [
+      "mongodb+srv://user:pass@qplatresults01.xui2vfx.mongodb.net",
+      "mongodb+srv://user:pass@qplatresults02.f5cdfhi.mongodb.net",
+    ],
+    args: [{ batchSize: 10 }],
+  });
+  const response = await fetch(`${base}/rpc`, {
+    method: "POST",
+    headers: signed.headers,
+    body: signed.body,
+  });
+  assert.equal(response.status, 200);
+  const { result } = EJSON.parse(await response.text());
+  assert.deepEqual(result, { copied: 0, bytes: 0, done: true, cursor: null });
+  assert.ok(clients.some((client) => client.uri === "mongodb://core.invalid"));
 });
 
 test("RPC stops before Atlas reads when the free monthly budget is reached", async () => {
