@@ -14,10 +14,18 @@ const pass = (name, scalars = {}) => {
 const waitBatch = async (id) => {
   let previous = 0;
   for (let attempt = 0; attempt < 900; attempt++) {
-    const response = await context.request.get(
-      base + "/api?op=jobs&id=" + encodeURIComponent(id),
+    const result = await page.evaluate(async (jobId) => {
+      const response = await fetch(
+        "/api?op=jobs&id=" + encodeURIComponent(jobId),
+        { cache: "no-store" },
+      );
+      return { status: response.status, body: await response.json() };
+    }, id);
+    assert.ok(
+      Array.isArray(result.body.jobs),
+      `Job poll failed: HTTP ${result.status} ${result.body.error || "unknown response"}`,
     );
-    const job = (await response.json()).jobs[0];
+    const job = result.body.jobs[0];
     assert.ok(job, "Batch job disappeared.");
     assert.ok(!["failed", "cancelled"].includes(job.status), job.error);
     assert.ok(job.progress.percent >= previous);
@@ -54,10 +62,18 @@ const openBatchPanel = async (job, datasetVersion = null) => {
 };
 const waitSingle = async (id) => {
   for (let attempt = 0; attempt < 300; attempt++) {
-    const response = await context.request.get(
-      base + "/api?op=jobs&id=" + encodeURIComponent(id),
+    const result = await page.evaluate(async (jobId) => {
+      const response = await fetch(
+        "/api?op=jobs&id=" + encodeURIComponent(jobId),
+        { cache: "no-store" },
+      );
+      return { status: response.status, body: await response.json() };
+    }, id);
+    assert.ok(
+      Array.isArray(result.body.jobs),
+      `Job poll failed: HTTP ${result.status} ${result.body.error || "unknown response"}`,
     );
-    const job = (await response.json()).jobs[0];
+    const job = result.body.jobs[0];
     assert.ok(job, "Research job disappeared.");
     assert.ok(!["failed", "cancelled"].includes(job.status), job.error);
     if (job.status === "completed") return job;
@@ -95,17 +111,25 @@ const submitSingleAndOpen = async () => {
       .filter(Boolean),
     robustness: document.querySelector("#robustness").checked,
   }));
-  const accepted = await context.request.post(base + "/api?op=run", {
-    data: body,
-  });
-  assert.equal(accepted.status(), 202);
-  const id = (await accepted.json()).job;
+  const accepted = await page.evaluate(async (requestBody) => {
+    const response = await fetch("/api?op=run", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(requestBody),
+      cache: "no-store",
+    });
+    return { status: response.status, body: await response.json() };
+  }, body);
+  assert.equal(accepted.status, 202, accepted.body.error);
+  const id = accepted.body.job;
   await waitSingle(id);
-  const reportResponse = await context.request.get(
-    base + "/api?op=report&run=" + encodeURIComponent(id),
-  );
-  assert.equal(reportResponse.status(), 200);
-  const report = await reportResponse.json();
+  const report = await page.evaluate(async (runId) => {
+    const response = await fetch(
+      "/api?op=report&run=" + encodeURIComponent(runId),
+      { cache: "no-store" },
+    );
+    return response.json();
+  }, id);
   await page.locator('[data-view="history"]').click();
   await page.locator("#refreshHistory").click();
   const button = page.locator(`[data-open-run="${id}"]`);
@@ -127,6 +151,17 @@ let page = await context.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 try {
+  const workspaceResponse = await context.request.post(
+    base + "/api?op=workspace",
+    {
+      data: {
+        name: "qa_" + Date.now(),
+        password: randomBytes(24).toString("base64url"),
+        create: true,
+      },
+    },
+  );
+  assert.equal(workspaceResponse.status(), 200);
   const health = await fetch(base + "/api?op=health").then((r) => r.json());
   assert.equal(health.database, "connected");
   const [html, download] = await Promise.all([
@@ -187,24 +222,28 @@ try {
       document.querySelector('#batchSelectors [data-slot="0"]').value === id,
     firstCompatible._id,
   );
-  let slot = 1;
-  for (const version of compatible) {
-    if (version._id === firstCompatible._id || slot >= 6) continue;
-    await page
-      .locator(`#batchSelectors [data-slot="${slot}"]`)
-      .selectOption(version._id);
-    slot++;
-  }
-  assert.equal(slot, 6);
-  await page.locator("#workspaceButton").click();
-  const name = "qa_" + Date.now(),
-    password = randomBytes(24).toString("base64url");
-  await page.locator("#workspaceName").fill(name);
-  await page.locator("#workspacePassword").fill(password);
-  await page.locator("#createWorkspace").click();
+  const selectors = page.locator("#batchSelectors .batch-dataset");
+  const initiallySelected = await selectors.evaluateAll((elements) =>
+    elements.map((element) => element.value),
+  );
+  const replacement = compatible.find(
+    (version) => !initiallySelected.includes(version._id),
+  );
+  assert.ok(replacement, "Need an unused OHLC dataset to exercise selection.");
   await page
-    .locator("#workspaceDialog")
-    .waitFor({ state: "hidden", timeout: 30000 });
+    .locator('#batchSelectors [data-slot="1"]')
+    .selectOption(replacement._id);
+  await page.waitForFunction(
+    (id) =>
+      document.querySelector('#batchSelectors [data-slot="1"]').value === id,
+    replacement._id,
+  );
+  const selectedVersions = await selectors.evaluateAll((elements) =>
+    elements.map((element) => element.value),
+  );
+  assert.equal(selectedVersions.length, 6);
+  assert.equal(new Set(selectedVersions).size, 6);
+  assert.ok(selectedVersions.includes(firstCompatible._id));
   const code =
     "move = returns(close, 3)\nrange = (high - low) / close\nscore = rank(move) - 0.37 * rank(range)";
   await page.locator("#edgeName").fill("QA custom range-adjusted momentum");
@@ -573,18 +612,19 @@ try {
   const other = await browser.newContext({ serviceWorkers: "block" }),
     outsider = await other.request.get(base + "/api?op=runs");
   assert.equal(outsider.status(), 401);
+  const otherWorkspace = await other.request.post(base + "/api?op=workspace", {
+    data: {
+      name: "qa_other_" + Date.now(),
+      password: randomBytes(24).toString("base64url"),
+      create: true,
+    },
+  });
+  assert.equal(otherWorkspace.status(), 200);
   const otherPage = await other.newPage();
   await otherPage.goto(base);
   await otherPage.waitForFunction(
     () => document.documentElement.dataset.ready === "true",
   );
-  await otherPage.locator("#workspaceButton").click();
-  await otherPage.locator("#workspaceName").fill("qa_other_" + Date.now());
-  await otherPage
-    .locator("#workspacePassword")
-    .fill(randomBytes(24).toString("base64url"));
-  await otherPage.locator("#createWorkspace").click();
-  await otherPage.locator("#workspaceDialog").waitFor({ state: "hidden" });
   assert.equal(
     (
       await other.request.get(base + "/api?op=report&run=" + originalRun)

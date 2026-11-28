@@ -13,16 +13,27 @@ process.env.MONGODB_RELAY_PRIVATE_KEY = privateKey;
 delete process.env.MONGODB_URI;
 const originalFetch = globalThis.fetch;
 let captured;
+let capturedRequests = [];
+let pagedRows = null;
 globalThis.fetch = async (url, options) => {
   captured = { url: String(url), options, request: EJSON.parse(options.body) };
+  capturedRequests.push(captured.request);
   const timestamp = options.headers["x-qtpatuti-timestamp"];
   const nonce = options.headers["x-qtpatuti-nonce"];
   const signature = options.headers["x-qtpatuti-signature"];
   const digest = createHash("sha256").update(options.body).digest("hex");
   assert.ok(verify(null, Buffer.from(`${timestamp}.${nonce}.${digest}`), keys.publicKey, Buffer.from(signature, "base64url")));
-  const result = captured.request.operation === "countDocuments" ? 0 : captured.request.operation === "ping" ? { ok: 1 } : [
-    { date: new Date("2021-01-04T00:00:00Z"), close: 12.5 },
-  ];
+  const result =
+    captured.request.operation === "countDocuments"
+      ? 0
+      : captured.request.operation === "ping"
+        ? { ok: 1 }
+        : pagedRows
+          ? pagedRows.slice(
+              captured.request.skip || 0,
+              (captured.request.skip || 0) + captured.request.limit,
+            )
+          : [{ date: new Date("2021-01-04T00:00:00Z"), close: 12.5 }];
   return new Response(
     EJSON.stringify({ ok: true, result }, { relaxed: false }),
     { status: 200, headers: { "content-type": "application/ejson" } },
@@ -34,6 +45,21 @@ after(() => {
   for (const key of envKeys) {
     if (previous[key] === undefined) delete process.env[key];
     else process.env[key] = previous[key];
+  }
+});
+
+test("database relay pages large result sets below the response cap", async () => {
+  capturedRequests = [];
+  pagedRows = Array.from({ length: 8500 }, (_, id) => ({ id }));
+  try {
+    const rows = await (await db()).collection("bars").find({ version: "fixture" }).limit(8500).toArray();
+    assert.equal(rows.length, 8500);
+    assert.deepEqual(
+      capturedRequests.map(({ skip, limit }) => [skip, limit]),
+      [[0, 4000], [4000, 4000], [8000, 500]],
+    );
+  } finally {
+    pagedRows = null;
   }
 });
 
