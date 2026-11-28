@@ -53,6 +53,19 @@ function json(res, status, body) {
   res.end(payload);
 }
 
+function errorDiagnostic(error) {
+  const name = /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(error?.name || "")
+    ? error.name
+    : "Error";
+  const code = ["string", "number"].includes(typeof error?.code)
+    ? String(error.code)
+    : "";
+  return {
+    name,
+    ...(code && /^[A-Za-z0-9_-]{1,40}$/.test(code) ? { code } : {}),
+  };
+}
+
 function verifyRequest(publicKey, headers, body, seenNonces, now = Date.now()) {
   const timestamp = headers["x-qtpatuti-timestamp"];
   const nonce = headers["x-qtpatuti-nonce"];
@@ -163,8 +176,21 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
   }
 
   const server = createServer(async (req, res) => {
-    if (req.method === "GET" && req.url === "/healthz")
-      return json(res, 200, { ok: true });
+    const url = new URL(req.url, "http://localhost");
+    if (req.method === "GET" && url.pathname === "/healthz") {
+      if (url.searchParams.get("deep") !== "1")
+        return json(res, 200, { ok: true });
+      try {
+        const { uri: coreUri } = mongoTarget("q_plat", "workspaces", env);
+        await (await clientFor(coreUri)).db("q_plat").command({ ping: 1 });
+        const { uri: dataUri } = mongoTarget("q_plat", "bars", env);
+        if (dataUri !== coreUri)
+          await (await clientFor(dataUri)).db("q_plat").command({ ping: 1 });
+        return json(res, 200, { ok: true, core: "connected", data: "connected" });
+      } catch (error) {
+        return json(res, 503, { ok: false, ...errorDiagnostic(error) });
+      }
+    }
     if (req.method !== "POST" || req.url !== "/rpc")
       return json(res, 404, { ok: false, error: "Not found." });
     if (activeRequests >= MAX_ACTIVE_REQUESTS)
@@ -210,7 +236,11 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
       res.end(output);
     } catch (error) {
       const status = Number.isInteger(error?.status) ? error.status : 500;
-      json(res, status, { ok: false, error: error?.message || "MongoDB relay failed." });
+      json(res, status, {
+        ok: false,
+        error: error?.message || "MongoDB relay failed.",
+        diagnostic: errorDiagnostic(error),
+      });
     } finally {
       activeRequests -= 1;
     }

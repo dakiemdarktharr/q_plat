@@ -92,7 +92,7 @@ async function handle(request) {
           "q_plat database health check failed",
           error.name || "Error",
           Number.isInteger(error.status) ? error.status : "-",
-          error.code || "-",
+          error.relayStatus || error.code || "-",
         );
         database =
           process.env.MONGODB_RELAY_URL ||
@@ -955,7 +955,7 @@ async function handle(request) {
         op,
         e.name || "Error",
         e.code || "-",
-        Number.isInteger(e.status) ? e.status : "-",
+        e.relayStatus || (Number.isInteger(e.status) ? e.status : "-"),
       );
     return json(
       {

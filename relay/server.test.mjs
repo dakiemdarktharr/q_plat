@@ -30,6 +30,7 @@ let blockAtlasReads = false;
 let atlasReadGate = null;
 let atlasReadsReached = 0;
 let releaseEightAtlasReads;
+let failingUri = null;
 class FakeClient {
   constructor(uri) {
     this.uri = uri;
@@ -41,7 +42,11 @@ class FakeClient {
   }
   db(name) {
     return {
-      command: async ({ ping }) => ({ ok: ping === 1 ? 1 : 0 }),
+      command: async ({ ping }) => {
+        if (this.uri === failingUri)
+          throw Object.assign(new Error("Atlas unavailable"), { code: "ETIMEDOUT" });
+        return { ok: ping === 1 ? 1 : 0 };
+      },
       collection: (collection) => ({
         findOne: async () =>
           collection === "relay_usage" ? { bytes: storedUsage } : { name, collection },
@@ -86,6 +91,31 @@ test("health endpoint does not expose Atlas configuration", async () => {
   const response = await fetch(`${base}/healthz`);
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true });
+});
+
+test("deep health endpoint pings both Atlas clusters", async () => {
+  const response = await fetch(`${base}/healthz?deep=1`);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    ok: true,
+    core: "connected",
+    data: "connected",
+  });
+});
+
+test("deep health endpoint returns only safe error diagnostics", async () => {
+  failingUri = "mongodb://core.invalid";
+  try {
+    const response = await fetch(`${base}/healthz?deep=1`);
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), {
+      ok: false,
+      name: "Error",
+      code: "ETIMEDOUT",
+    });
+  } finally {
+    failingUri = null;
+  }
 });
 
 test("RPC allows a signed health ping through the core database only", async () => {
