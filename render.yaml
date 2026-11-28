@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: qtpatuti-atlas-relay
+    runtime: node
+    region: singapore
+    plan: free
+    rootDir: relay
+    buildCommand: npm ci --no-audit --no-fund
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: MONGODB_CORE_URI
+        sync: false
+      - key: MONGODB_DATA_URI
+        sync: false
+      - key: MONGODB_RELAY_SECRET
+        sync: false

@@ -1,0 +1,55 @@
+import assert from "node:assert/strict";
+import { after, test } from "node:test";
+import { EJSON } from "bson";
+import { db } from "../lib/db.mjs";
+
+const envKeys = ["MONGODB_RELAY_URL", "MONGODB_RELAY_SECRET", "MONGODB_URI"];
+const previous = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+process.env.MONGODB_RELAY_URL = "https://relay.example.test";
+process.env.MONGODB_RELAY_SECRET = "test-secret";
+delete process.env.MONGODB_URI;
+const originalFetch = globalThis.fetch;
+let captured;
+globalThis.fetch = async (url, options) => {
+  captured = { url: String(url), options, request: EJSON.parse(options.body) };
+  const result = captured.request.operation === "countDocuments" ? 0 : [
+    { date: new Date("2021-01-04T00:00:00Z"), close: 12.5 },
+  ];
+  return new Response(
+    EJSON.stringify({ ok: true, result }, { relaxed: false }),
+    { status: 200, headers: { "content-type": "application/ejson" } },
+  );
+};
+
+after(() => {
+  globalThis.fetch = originalFetch;
+  for (const key of envKeys) {
+    if (previous[key] === undefined) delete process.env[key];
+    else process.env[key] = previous[key];
+  }
+});
+
+test("database relay preserves BSON dates and cursor clauses", async () => {
+  const database = await db();
+  const rows = await database
+    .collection("bars")
+    .find({ date: { $gte: new Date("2021-01-01T00:00:00Z") } }, { projection: { close: 1 } })
+    .sort({ date: 1, asset: 1 })
+    .limit(12)
+    .toArray();
+  assert.equal(captured.url, "https://relay.example.test/rpc");
+  assert.equal(captured.options.headers.authorization, "Bearer test-secret");
+  assert.equal(captured.request.collection, "bars");
+  assert.equal(captured.request.limit, 12);
+  assert.deepEqual(captured.request.sort, { date: 1, asset: 1 });
+  assert.ok(captured.request.filter.date.$gte instanceof Date);
+  assert.ok(rows[0].date instanceof Date);
+  assert.equal(rows[0].close, 12.5);
+});
+
+test("database relay exposes only the supported collection operations", async () => {
+  const database = await db();
+  assert.equal(await database.collection("jobs").countDocuments({ status: "queued" }), 0);
+  assert.equal(captured.request.operation, "countDocuments");
+  assert.equal(database.collection("jobs").drop, undefined);
+});
