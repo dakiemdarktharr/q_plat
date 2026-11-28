@@ -237,21 +237,25 @@ try {
     firstCompatible._id,
   );
   const selectors = page.locator("#batchSelectors .batch-dataset");
-  const initiallySelected = await selectors.evaluateAll((elements) =>
-    elements.map((element) => element.value),
-  );
-  const replacement = compatible.find(
-    (version) => !initiallySelected.includes(version._id),
-  );
-  assert.ok(replacement, "Need an unused OHLC dataset to exercise selection.");
-  await page
-    .locator('#batchSelectors [data-slot="1"]')
-    .selectOption(replacement._id);
-  await page.waitForFunction(
-    (id) =>
-      document.querySelector('#batchSelectors [data-slot="1"]').value === id,
-    replacement._id,
-  );
+  const compatibleIds = new Set(compatible.map((version) => version._id));
+  for (let slot = 0; slot < 6; slot++) {
+    const selected = await selectors.evaluateAll((elements) =>
+      elements.map((element) => element.value),
+    );
+    if (compatibleIds.has(selected[slot])) continue;
+    const used = new Set(selected);
+    const replacement = compatible.find((version) => !used.has(version._id));
+    assert.ok(replacement, "Need six distinct OHLC datasets to exercise selection.");
+    await page
+      .locator(`#batchSelectors [data-slot="${slot}"]`)
+      .selectOption(replacement._id);
+    await page.waitForFunction(
+      ({ slot, id }) =>
+        document.querySelector(`#batchSelectors [data-slot="${slot}"]`)
+          .value === id,
+      { slot, id: replacement._id },
+    );
+  }
   const selectedVersions = await selectors.evaluateAll((elements) =>
     elements.map((element) => element.value),
   );
