@@ -2868,9 +2868,7 @@ Compare against mean reversion.</pre>
           connectionNotice(
             "Unable to load cloud observations: " +
               e.message +
-              (local
-                ? " Your browser may block file-origin requests."
-                : ""),
+              (local ? " Your browser may block file-origin requests." : ""),
           );
         }
         screen(
@@ -2888,8 +2886,10 @@ Compare against mean reversion.</pre>
         document.documentElement.dataset.ready = "true";
       }
       function renderCatalog(catalog) {
-        $("catalogCards").innerHTML =
-          Object.values(catalog.sources)
+        const sources = Object.values(catalog.sources).filter(
+            (meta) => !meta.id.startsWith("wiki_sp500_"),
+          ),
+          sourceSections = sources
             .map((meta) => {
               const versions = state.versions.filter(
                 (v) => v.dataset === meta.id,
@@ -2955,7 +2955,44 @@ Compare against mean reversion.</pre>
                 "</details></article>"
               );
             })
-            .join("") +
+            .join(""),
+          cohorts = state.versions.filter((v) =>
+            v.dataset.startsWith("wiki_sp500_"),
+          );
+        const cohortSection = cohorts.length
+          ? '<section class="below"><h2>US equity cohorts</h2><details><summary>' +
+            cohorts.length.toLocaleString() +
+            " WIKI snapshots</summary>" +
+            cohorts
+              .map(
+                (v) =>
+                  "<details><summary>" +
+                  esc(v.meta.name) +
+                  ", " +
+                  v.count.toLocaleString() +
+                  " observations</summary>" +
+                  jsonView({
+                    symbols: v.assets,
+                    sector: v.meta.sector,
+                    subIndustries: v.meta.subIndustries,
+                    from: v.from,
+                    to: v.to,
+                    sessions: v.sessions,
+                    quality: v.quality,
+                    universeScreen: v.universeScreen,
+                    sourceArtifact: v.sourceArtifact,
+                    checksum: v.checksum,
+                    attribution: v.meta.attribution,
+                    limitations: v.meta.limitations,
+                  }) +
+                  "</details>",
+              )
+              .join("") +
+            "</details></section>"
+          : "";
+        $("catalogCards").innerHTML =
+          sourceSections +
+          cohortSection +
           catalog.optional
             .map(
               (s) =>

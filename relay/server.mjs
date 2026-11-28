@@ -8,6 +8,7 @@ const COLLECTIONS = new Set([
   "api_tokens",
   "bars",
   "datasets",
+  "dataset_ingest_plans",
   "dataset_versions",
   "edge_versions",
   "edges",

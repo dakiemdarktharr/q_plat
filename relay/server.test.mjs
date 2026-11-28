@@ -135,6 +135,9 @@ test("RPC routes market bars to the data cluster and metadata to the core cluste
   const jobs = await request("jobs");
   assert.equal(jobs.status, 200);
   assert.equal(EJSON.parse(await jobs.text()).result, 7);
+  const plans = await request("dataset_ingest_plans");
+  assert.equal(plans.status, 200);
+  assert.equal(EJSON.parse(await plans.text()).result, 7);
   assert.deepEqual(
     [...new Set(clients.map((client) => client.uri))].sort(),
     ["mongodb://core.invalid", "mongodb://data.invalid"],

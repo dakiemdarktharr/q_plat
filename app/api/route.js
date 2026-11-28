@@ -16,6 +16,7 @@ import {
 } from "../../lib/auth.mjs";
 import { CATALOG, OPTIONAL_SOURCES } from "../../lib/catalog.mjs";
 import { EQUITY_BUNDLE, EQUITY_CATALOG } from "../../lib/equity-catalog.mjs";
+import { WIKI_COHORT_BUNDLE } from "../../lib/wiki-cohorts.mjs";
 import { EQUITY_AUDIT_VERSION } from "../../lib/equity-calendar.mjs";
 import { parse, evaluate, makePanel } from "../../lib/dsl.mjs";
 import { validateConfig, ENGINE_VERSION } from "../../lib/engine.mjs";
@@ -306,7 +307,11 @@ async function handle(request) {
     if (op === "import" && request.method === "POST") {
       if (!owner(request)) throw httpError("Owner access required.", 403);
       const b = await bodyOf(request);
-      if (!CATALOG[b.dataset] && b.dataset !== EQUITY_BUNDLE)
+      if (
+        !CATALOG[b.dataset] &&
+        b.dataset !== EQUITY_BUNDLE &&
+        b.dataset !== WIKI_COHORT_BUNDLE
+      )
         throw httpError("Unknown catalog source.");
       await rateLimit(database, "owner:import", 4);
       const id = randomUUID();
