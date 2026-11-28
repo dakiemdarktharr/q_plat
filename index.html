@@ -805,6 +805,52 @@
         font: 11px/1.6 var(--mono);
         overflow-wrap: anywhere;
       }
+      .job-progress-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 12px;
+        font-size: 12px;
+      }
+      .job-progress-row > :first-child {
+        flex: 1;
+      }
+      .job-progress-row button {
+        padding: 4px 8px;
+        min-height: 28px;
+      }
+      .job-progress-row time {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      progress.job-meter {
+        display: block;
+        appearance: none;
+        width: 100%;
+        height: 4px;
+        border: 0;
+        background: #25232b;
+        margin: 8px 0 12px;
+      }
+      progress.job-meter::-webkit-progress-bar {
+        background: #25232b;
+      }
+      progress.job-meter::-webkit-progress-value {
+        background: #a78bfa;
+      }
+      progress.job-meter::-moz-progress-bar {
+        background: #a78bfa;
+      }
+      progress.job-meter[data-status="failed"]::-webkit-progress-value {
+        background: #fb7185;
+      }
+      progress.job-meter[data-status="cancelled"]::-webkit-progress-value {
+        background: #85808e;
+      }
+      .job-meta {
+        flex: 1;
+        min-width: 0;
+      }
 
       .kpis {
         display: grid;
@@ -1470,7 +1516,21 @@ score = rank(mom) - 0.25 * rank(risk)</textarea>
                 >
                   Run edge
                 </button>
-                <div class="note below" id="jobStatus" role="status"></div>
+                <div class="sr-only" id="jobStatus" role="status"></div>
+                <div id="jobProgress" hidden>
+                  <div class="job-progress-row">
+                    <span id="jobPhase">Queued</span
+                    ><time id="jobElapsed"></time><b id="jobPercent">0%</b
+                    ><button id="cancelJob">Cancel</button>
+                  </div>
+                  <progress
+                    class="job-meter"
+                    id="jobMeter"
+                    aria-label="Research progress"
+                    max="100"
+                    value="0"
+                  ></progress>
+                </div>
                 <div class="editor-actions">
                   <button id="validate">Validate</button
                   ><button id="save">Save version</button
@@ -2212,6 +2272,9 @@ Compare against mean reversion.</pre>
         selectedView: "research",
         hoverDate: null,
         evalHorizon: 1,
+        jobGeneration: 0,
+        activeJob: null,
+        historyTimer: null,
       };
       async function api(op, params = {}, body) {
         const url = new URL("/api", base);
@@ -2477,7 +2540,10 @@ Compare against mean reversion.</pre>
           if (!local) {
             const s = await api("session");
             setWorkspace(s);
-            if (s.workspace) await loadEdges();
+            if (s.workspace) {
+              await loadEdges();
+              await resumeJob();
+            }
           }
           notice(
             state.versions.length
@@ -2759,6 +2825,12 @@ Compare against mean reversion.</pre>
         drawAll();
       }
       function setWorkspace(s) {
+        if (state.workspace?.workspace !== s.workspace) {
+          state.jobGeneration++;
+          state.activeJob = null;
+          clearTimeout(state.historyTimer);
+          $("jobProgress").hidden = true;
+        }
         state.workspace = s.workspace ? s : null;
         $("workspaceButton").textContent = s.workspace
           ? s.guest
@@ -2796,6 +2868,7 @@ Compare against mean reversion.</pre>
           }
           $("workspaceDialog").close();
           await loadEdges();
+          await resumeJob();
           notice(
             "Private workspace opened. Your research is stored in Atlas.",
             "ok",
@@ -2959,23 +3032,79 @@ Compare against mean reversion.</pre>
           );
           $("jobStatus").textContent = "Job " + r.job + " accepted";
           notice("Research job accepted", "ok");
-          pollJob(r.job);
+          trackJob(r.job);
         } catch (e) {
           setRunning(false);
           throw e;
         }
       }
-      async function pollJob(id, workspace = state.workspace?.workspace) {
+      function elapsedLabel(seconds) {
+        if (!Number.isFinite(seconds)) return "";
+        return seconds < 60
+          ? seconds + "s"
+          : Math.floor(seconds / 60) + "m " + (seconds % 60) + "s";
+      }
+      function renderJobProgress(job) {
+        const p = job.progress || { percent: 0, stage: "Queued" };
+        $("jobProgress").hidden = false;
+        $("jobPhase").textContent = p.stage;
+        $("jobPercent").textContent = p.percent === null ? "" : p.percent + "%";
+        $("jobElapsed").textContent = elapsedLabel(p.elapsedSeconds);
+        if (p.percent === null) $("jobMeter").removeAttribute("value");
+        else $("jobMeter").value = p.percent;
+        $("jobMeter").dataset.status = job.status;
+        $("jobMeter").setAttribute(
+          "aria-valuetext",
+          p.stage + (p.percent === null ? "" : ", " + p.percent + "%"),
+        );
+        $("cancelJob").hidden = !["queued", "running", "retrying"].includes(
+          job.status,
+        );
+      }
+      function trackJob(id) {
+        state.activeJob = id;
+        const generation = ++state.jobGeneration;
+        setRunning(true);
+        renderJobProgress({ status: "queued" });
+        pollJob(id, state.workspace?.workspace, generation);
+      }
+      async function resumeJob() {
+        if (!state.workspace) return;
+        const workspace = state.workspace.workspace;
+        const active = (await api("jobs")).jobs.find(
+          (j) =>
+            j.type === "research" &&
+            ["queued", "running", "retrying", "committing"].includes(j.status),
+        );
+        if (
+          workspace === state.workspace?.workspace &&
+          active &&
+          !state.activeJob
+        )
+          trackJob(active._id);
+      }
+      async function pollJob(id, workspace, generation) {
         try {
-          if (workspace !== state.workspace?.workspace) return;
+          if (
+            workspace !== state.workspace?.workspace ||
+            generation !== state.jobGeneration
+          )
+            return;
           const j = (await api("jobs", { id })).jobs[0];
-          if (workspace !== state.workspace?.workspace) return;
+          if (
+            workspace !== state.workspace?.workspace ||
+            generation !== state.jobGeneration
+          )
+            return;
           if (!j) {
+            state.activeJob = null;
             setRunning(false);
             return;
           }
           $("jobStatus").textContent = "Job " + j.status;
+          renderJobProgress(j);
           if (j.status === "completed" && j.summary?.run) {
+            state.activeJob = null;
             resultTab("overview");
             await openRun(j.summary.run);
             setRunning(false);
@@ -2983,18 +3112,28 @@ Compare against mean reversion.</pre>
             return;
           }
           if (["failed", "cancelled"].includes(j.status)) {
+            state.activeJob = null;
             setRunning(false);
             notice(j.error || "Job " + j.status, "error");
             return;
           }
-          setTimeout(() => pollJob(id, workspace), 2200);
+          setTimeout(
+            () => pollJob(id, workspace, generation),
+            document.hidden ? 4000 : 1000,
+          );
         } catch (e) {
-          setRunning(false);
+          if (
+            workspace !== state.workspace?.workspace ||
+            generation !== state.jobGeneration
+          )
+            return;
+          $("jobPhase").textContent = "Reconnecting";
           notice(
             "Job status could not be read. Use Runs & Jobs to reconnect. " +
               e.message,
             "error",
           );
+          setTimeout(() => pollJob(id, workspace, generation), 4000);
         }
       }
       async function openRun(id) {
@@ -3276,7 +3415,10 @@ Compare against mean reversion.</pre>
           "</div></div>";
       }
       async function history() {
+        clearTimeout(state.historyTimer);
+        const workspace = state.workspace?.workspace;
         const [rs, js] = await Promise.all([api("runs"), api("jobs")]);
+        if (workspace !== state.workspace?.workspace) return;
         $("runsList").innerHTML =
           rs.runs
             .map(
@@ -3328,24 +3470,36 @@ Compare against mean reversion.</pre>
                       r.datasetVersion,
                     "ok",
                   );
-                  pollJob(j.job);
+                  trackJob(j.job);
                   await history();
                 })),
           );
         $("jobsList").innerHTML = js.jobs
           .map(
             (j) =>
-              '<div class="run-item"><div class="run-meta"><b>' +
+              '<div class="run-item"><div class="run-meta job-meta"><b>' +
               esc(j.type) +
               ", " +
               esc(j.status) +
               '</b><span class="mono">' +
               j._id.slice(0, 8) +
-              (j.progress
-                ? ", " + j.progress.checkpoint + "/" + j.progress.total
-                : "") +
+              ", " +
+              esc(j.progress.stage) +
+              (j.progress.percent === null
+                ? ""
+                : ", " + j.progress.percent + "%") +
+              ", " +
+              elapsedLabel(j.progress.elapsedSeconds) +
               (j.error ? ", " + esc(j.error) : "") +
-              "</span></div>" +
+              '</span><progress class="job-meter" aria-label="Job ' +
+              j._id.slice(0, 8) +
+              ' progress" max="100" ' +
+              (j.progress.percent === null
+                ? ""
+                : 'value="' + j.progress.percent + '" ') +
+              'data-status="' +
+              j.status +
+              '"></progress></div>' +
               (["queued", "running", "retrying"].includes(j.status)
                 ? '<button data-cancel="' + j._id + '">Cancel</button>'
                 : ["failed", "cancelled"].includes(j.status)
@@ -3367,10 +3521,11 @@ Compare against mean reversion.</pre>
                       { id: b.dataset.cancel || b.dataset.retry },
                     );
                   await history();
-                  if (r.job) pollJob(r.job);
+                  if (r.job) trackJob(r.job);
                 })),
           );
-        for (const id of ["compareA", "compareB"])
+        for (const id of ["compareA", "compareB"]) {
+          const previous = $(id).value;
           $(id).innerHTML = rs.runs
             .map(
               (r) =>
@@ -3383,7 +3538,22 @@ Compare against mean reversion.</pre>
                 "</option>",
             )
             .join("");
-        if (rs.runs.length > 1) $("compareB").selectedIndex = 1;
+          if (rs.runs.some((r) => r._id === previous)) $(id).value = previous;
+          else if (id === "compareB" && rs.runs.length > 1)
+            $(id).selectedIndex = 1;
+        }
+        if (
+          js.jobs.some((j) =>
+            ["queued", "running", "retrying", "committing"].includes(j.status),
+          )
+        )
+          state.historyTimer = setTimeout(() => {
+            if (
+              state.selectedView === "history" &&
+              workspace === state.workspace?.workspace
+            )
+              history().catch((e) => notice(e.message, "error"));
+          }, 4000);
       }
       // CHART RENDERERS — original Canvas implementation, no external library or data cache.
       const colors = ["#a78bfa", "#f4d35e", "#e9d5ff", "#8b5cf6", "#a5a1b5"];
@@ -3914,6 +4084,14 @@ Compare against mean reversion.</pre>
         run,
         loadEdge,
         refreshHistory: history,
+        cancelJob: async () => {
+          if (state.activeJob) {
+            const id = state.activeJob;
+            await api("cancel", {}, { id });
+            const job = (await api("jobs", { id })).jobs[0];
+            if (state.activeJob === id && job) renderJobProgress(job);
+          }
+        },
         resetZoom: () => {
           $("from").value = state.version.from;
           $("to").value = state.version.to;

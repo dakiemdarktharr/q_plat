@@ -22,6 +22,8 @@ import { validateConfig, ENGINE_VERSION } from "../../lib/engine.mjs";
 import { aggregateBars, distribution } from "../../lib/window.mjs";
 import { asOfJoin } from "../../lib/metrics.mjs";
 import { cloudChecks } from "../../lib/cloud-checks.mjs";
+import { readResult } from "../../lib/result-store.mjs";
+import { jobProgress } from "../../lib/progress.mjs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 const publicOps = new Set(["health", "catalog", "window"]);
@@ -57,6 +59,7 @@ async function ownedRun(database, id, workspace) {
 }
 const clean = (obj) => (obj ? JSON.parse(JSON.stringify(obj)) : obj);
 async function enqueue(database, job) {
+  job.progress = { percent: 0, stage: "Queued", updatedAt: job.createdAt };
   if (job.type !== "research")
     return database.collection("jobs").insertOne(job);
   for (let slot = 0; slot < 2; slot++) {
@@ -549,12 +552,14 @@ async function handle(request) {
       const filter = { workspace: s.workspace };
       if (q.get("id")) filter._id = q.get("id");
       return json({
-        jobs: await database
-          .collection("jobs")
-          .find(filter, { projection: { code: 0 } })
-          .sort({ createdAt: -1 })
-          .limit(40)
-          .toArray(),
+        jobs: (
+          await database
+            .collection("jobs")
+            .find(filter, { projection: { code: 0 } })
+            .sort({ createdAt: -1 })
+            .limit(40)
+            .toArray()
+        ).map((job) => ({ ...job, progress: jobProgress(job) })),
       });
     }
     if (["cancel", "retry"].includes(op) && request.method === "POST") {
@@ -581,8 +586,19 @@ async function handle(request) {
       if (!["failed", "cancelled"].includes(job.status))
         throw httpError("Only failed/cancelled jobs can be retried.");
       const id = randomUUID();
+      const {
+        progress,
+        summary,
+        startedAt,
+        completedAt,
+        cancelledAt,
+        failedAt,
+        leaseUntil,
+        slot,
+        ...retryInput
+      } = job;
       await enqueue(database, {
-        ...job,
+        ...retryInput,
         _id: id,
         retryOf: job._id,
         status: "queued",
@@ -629,25 +645,17 @@ async function handle(request) {
         asset = q.get("asset") || v.assets[0],
         from = q.get("from") || v.from,
         to = q.get("to") || v.to;
-      const filter = { run: r._id, date: { $gte: from, $lte: to } },
-        timelines = await database
-          .collection("run_series")
-          .find(
-            { ...filter, kind: "timeline" },
-            { projection: { _id: 0, run: 0 } },
-          )
-          .sort({ date: 1 })
-          .limit(5000)
-          .toArray(),
-        points = await database
-          .collection("run_series")
-          .find(
-            { ...filter, kind: "point", asset },
-            { projection: { _id: 0, run: 0 } },
-          )
-          .sort({ date: 1 })
-          .limit(5000)
-          .toArray();
+      const [timelines, points, fills] = await Promise.all([
+        readResult(database, r, "timeline", { from, to }),
+        readResult(database, r, "point", { asset, from, to }),
+        readResult(database, r, "ledger", {
+          asset,
+          from,
+          to,
+          sort: "event",
+          limit: 300,
+        }),
+      ]);
       const frame = [1, 5, 20].includes(Number(q.get("frame")))
         ? Number(q.get("frame"))
         : 1;
@@ -672,12 +680,7 @@ async function handle(request) {
       return json({
         timeline: pick(timelines),
         points: pick(points),
-        fills: await database
-          .collection("ledger_events")
-          .find({ ...filter, asset })
-          .sort({ event: 1 })
-          .limit(300)
-          .toArray(),
+        fills,
         sampled: buckets.length < bars.length,
       });
     }
@@ -687,25 +690,19 @@ async function handle(request) {
         horizon = Number(q.get("horizon") || r.config.horizon);
       if (!Number.isInteger(horizon) || horizon < 1 || horizon > 12)
         throw httpError("Invalid evaluation horizon.");
-      const points = await database
-        .collection("run_series")
-        .find(
-          { run: r._id, kind: "point", date },
-          { projection: { _id: 0, run: 0 } },
-        )
-        .sort({ score: -1 })
-        .limit(64)
-        .toArray();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date || ""))
+        throw httpError("Invalid date.");
+      const points = await readResult(database, r, "point", {
+        from: date,
+        to: date,
+        sort: "score",
+        limit: 64,
+      });
       if (horizon !== r.config.horizon) {
-        const futureDates = await database
-            .collection("run_series")
-            .find(
-              { run: r._id, kind: "timeline", date: { $gte: date } },
-              { projection: { date: 1, _id: 0 } },
-            )
-            .sort({ date: 1 })
-            .limit(horizon + 2)
-            .toArray(),
+        const futureDates = await readResult(database, r, "timeline", {
+            from: date,
+            limit: horizon + 2,
+          }),
           start = r.meta.kind === "reference" ? 0 : 1,
           end = start + horizon,
           field = r.meta.kind === "reference" ? "close" : "open";
@@ -736,32 +733,41 @@ async function handle(request) {
       return json({ date, horizon, points });
     }
     if (op === "detail" && request.method === "GET") {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(q.get("date") || ""))
+        throw httpError("Invalid date.");
       const r = await ownedRun(database, q.get("run"), s.workspace),
         date = q.get("date"),
         asset = q.get("asset"),
-        p = await database
-          .collection("run_series")
-          .findOne(
-            { run: r._id, kind: "point", date, asset },
-            { projection: { _id: 0, run: 0 } },
-          ),
+        p =
+          (
+            await readResult(database, r, "point", {
+              asset,
+              from: date,
+              to: date,
+              limit: 1,
+            })
+          )[0] || null,
         source = await database
           .collection("bars")
           .findOne(
             { version: r.datasetVersion, date, asset },
             { projection: { _id: 0, version: 0 } },
           ),
-        ledger = await database
-          .collection("ledger_events")
-          .find({ run: r._id, asset, $or: [{ date }, { decisionDate: date }] })
-          .limit(20)
-          .toArray(),
-        timeline = await database
-          .collection("run_series")
-          .findOne(
-            { run: r._id, kind: "timeline", date },
-            { projection: { _id: 0, run: 0 } },
-          );
+        ledger = await readResult(database, r, "ledger", {
+          asset,
+          from: date,
+          to: date,
+          decisionDate: date,
+          sort: "event",
+          limit: 20,
+        }),
+        timeline = (
+          await readResult(database, r, "timeline", {
+            from: date,
+            to: date,
+            limit: 1,
+          })
+        )[0];
       return json({
         source,
         point: p,
@@ -780,18 +786,8 @@ async function handle(request) {
     if (op === "compare" && request.method === "GET") {
       const a = await ownedRun(database, q.get("a"), s.workspace),
         b = await ownedRun(database, q.get("b"), s.workspace),
-        sa = await database
-          .collection("run_series")
-          .find({ run: a._id, kind: "timeline" })
-          .sort({ date: 1 })
-          .limit(5000)
-          .toArray(),
-        sb = await database
-          .collection("run_series")
-          .find({ run: b._id, kind: "timeline" })
-          .sort({ date: 1 })
-          .limit(5000)
-          .toArray(),
+        sa = await readResult(database, a, "timeline"),
+        sb = await readResult(database, b, "timeline"),
         byDate = new Map(sb.map((r) => [r.date, r]));
       const first = sa.find((r) => {
         const other = byDate.get(r.date);
