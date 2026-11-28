@@ -40,6 +40,10 @@ Keep `index.html` as the sole frontend source. Sections are marked `THEME`, `LAY
 
 Every new research action must also be available through the scoped API and MCP. Extend `lib/ai-tools.mjs` as the shared contract; keep administration and token management out of AI tools. Test the real client-to-cloud-to-web journey. The AI browser suite also checks dropdown asset → Trace synchronization and out-of-order responses using delayed genuine cloud responses in RAM.
 
+## Equity expansion verification — 2026-11-28 (Asia/Saigon)
+
+Added ten audited daily equity panels to Atlas: 60 stocks, 90,445 observations across 2012–2017. Four malformed/non-trading source rows were quarantined; the source-wide 2017-11-08 gap is disclosed. Independent Atlas counts/invariants and repeat-import hashes passed. At 08:38:53, the production equity suite completed all ten full-history runs plus an exact rerun, independent real-price arithmetic, robustness, official MCP access and the desktop/mobile result journey. All 29 unit tests and release CI passed. No datasets were saved locally and no paid resource was enabled. [Source limitations, checksums and detailed test receipts](docs/equity-datasets.md).
+
 ## Interface cleanup verification — 2026-11-28 (Asia/Saigon)
 
 Application revision `28ffb1011786d60ffb8fd2d04512ada8df793975`, deployment `dpl_GAoAPip7WsHGUzpc3xKznpPiNGB6`. [Release CI 46086101150](https://github.com/dakiemdarktharr/q_plat/actions/runs/46086101150) passed 23 unit tests, build, dependency audit and public-source/production/download checks. All eight AI/browser cases passed again against this deployment. HTML SHA-256: `de8b9f4d4cf8dc2ff5daf815065822c76544b56580da1f218bf058b255a11ad1`.
