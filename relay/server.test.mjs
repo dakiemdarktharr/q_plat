@@ -1,7 +1,27 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { createHash, generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import { EJSON } from "bson";
 import { createRelayServer } from "./server.mjs";
+
+const keys = generateKeyPairSync("ed25519");
+const publicKey = keys.publicKey.export({ format: "der", type: "spki" }).toString("base64");
+function signedRequest(request, nonce = randomUUID()) {
+  const body = EJSON.stringify(request, { relaxed: false });
+  const timestamp = String(Date.now());
+  const digest = createHash("sha256").update(body).digest("hex");
+  const message = `${timestamp}.${nonce}.${digest}`;
+  const signature = sign(null, Buffer.from(message), keys.privateKey).toString("base64url");
+  return {
+    body,
+    headers: {
+      "x-qtpatuti-timestamp": timestamp,
+      "x-qtpatuti-nonce": nonce,
+      "x-qtpatuti-signature": signature,
+      "content-type": "application/ejson",
+    },
+  };
+}
 
 const clients = [];
 let storedUsage = 0;
@@ -38,7 +58,7 @@ class FakeClient {
 
 const relay = createRelayServer({
   env: {
-    MONGODB_RELAY_SECRET: "a-test-only-secret",
+    MONGODB_RELAY_PUBLIC_KEY: publicKey,
     MONGODB_CORE_URI: "mongodb://core.invalid",
     MONGODB_DATA_URI: "mongodb://data.invalid",
   },
@@ -58,41 +78,39 @@ test("health endpoint does not expose Atlas configuration", async () => {
   assert.deepEqual(await response.json(), { ok: true });
 });
 
-test("RPC requires the server-side secret", async () => {
+test("RPC requires a fresh signature from the Vercel private key", async () => {
   const response = await fetch(`${base}/rpc`, { method: "POST", body: "{}" });
   assert.equal(response.status, 401);
 });
 
 test("RPC limits databases before opening a MongoDB connection", async () => {
   const before = clients.length;
+  const signed = signedRequest({
+    database: "other",
+    collection: "jobs",
+    operation: "countDocuments",
+    args: [{}],
+  });
   const response = await fetch(`${base}/rpc`, {
     method: "POST",
-    headers: {
-      authorization: "Bearer a-test-only-secret",
-      "content-type": "application/ejson",
-    },
-    body: '{"database":"other","collection":"jobs","operation":"countDocuments","args":[{}]}',
+    headers: signed.headers,
+    body: signed.body,
   });
   assert.equal(response.status, 403);
   assert.equal(clients.length, before);
 });
 
 test("RPC routes market bars to the data cluster and metadata to the core cluster", async () => {
-  const headers = {
-    authorization: "Bearer a-test-only-secret",
-    "content-type": "application/ejson",
-  };
   const request = (collection) =>
-    fetch(`${base}/rpc`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
+    {
+      const signed = signedRequest({
         database: "q_plat",
         collection,
         operation: "countDocuments",
         args: [{}],
-      }),
-    });
+      });
+      return fetch(`${base}/rpc`, { method: "POST", headers: signed.headers, body: signed.body });
+    };
   const bars = await request("bars");
   const barsBody = EJSON.parse(await bars.text());
   assert.equal(bars.status, 200);
@@ -109,20 +127,31 @@ test("RPC routes market bars to the data cluster and metadata to the core cluste
 test("RPC stops before Atlas reads when the free monthly budget is reached", async () => {
   storedUsage = 10 * 1024 * 1024 * 1024;
   const before = mongoReadCount;
+  const signed = signedRequest({
+    database: "q_plat",
+    collection: "jobs",
+    operation: "countDocuments",
+    args: [{}],
+  });
   const response = await fetch(`${base}/rpc`, {
     method: "POST",
-    headers: {
-      authorization: "Bearer a-test-only-secret",
-      "content-type": "application/ejson",
-    },
-    body: JSON.stringify({
-      database: "q_plat",
-      collection: "jobs",
-      operation: "countDocuments",
-      args: [{}],
-    }),
+    headers: signed.headers,
+    body: signed.body,
   });
   assert.equal(response.status, 429);
   assert.equal(mongoReadCount, before);
   storedUsage = 0;
+});
+
+test("RPC rejects a replayed signed request", async () => {
+  const signed = signedRequest({
+    database: "q_plat",
+    collection: "jobs",
+    operation: "countDocuments",
+    args: [{}],
+  });
+  const send = () =>
+    fetch(`${base}/rpc`, { method: "POST", headers: signed.headers, body: signed.body });
+  assert.equal((await send()).status, 200);
+  assert.equal((await send()).status, 401);
 });

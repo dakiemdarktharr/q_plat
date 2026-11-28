@@ -1,17 +1,25 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { createHash, generateKeyPairSync, verify } from "node:crypto";
 import { EJSON } from "bson";
 import { db } from "../lib/db.mjs";
 
-const envKeys = ["MONGODB_RELAY_URL", "MONGODB_RELAY_SECRET", "MONGODB_URI"];
+const keys = generateKeyPairSync("ed25519");
+const privateKey = keys.privateKey.export({ format: "der", type: "pkcs8" }).toString("base64");
+const envKeys = ["MONGODB_RELAY_URL", "MONGODB_RELAY_PRIVATE_KEY", "MONGODB_URI"];
 const previous = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
 process.env.MONGODB_RELAY_URL = "https://relay.example.test";
-process.env.MONGODB_RELAY_SECRET = "test-secret";
+process.env.MONGODB_RELAY_PRIVATE_KEY = privateKey;
 delete process.env.MONGODB_URI;
 const originalFetch = globalThis.fetch;
 let captured;
 globalThis.fetch = async (url, options) => {
   captured = { url: String(url), options, request: EJSON.parse(options.body) };
+  const timestamp = options.headers["x-qtpatuti-timestamp"];
+  const nonce = options.headers["x-qtpatuti-nonce"];
+  const signature = options.headers["x-qtpatuti-signature"];
+  const digest = createHash("sha256").update(options.body).digest("hex");
+  assert.ok(verify(null, Buffer.from(`${timestamp}.${nonce}.${digest}`), keys.publicKey, Buffer.from(signature, "base64url")));
   const result = captured.request.operation === "countDocuments" ? 0 : [
     { date: new Date("2021-01-04T00:00:00Z"), close: 12.5 },
   ];
@@ -38,7 +46,7 @@ test("database relay preserves BSON dates and cursor clauses", async () => {
     .limit(12)
     .toArray();
   assert.equal(captured.url, "https://relay.example.test/rpc");
-  assert.equal(captured.options.headers.authorization, "Bearer test-secret");
+  assert.equal(captured.options.headers["x-qtpatuti-signature"].length > 0, true);
   assert.equal(captured.request.collection, "bars");
   assert.equal(captured.request.limit, 12);
   assert.deepEqual(captured.request.sort, { date: 1, asset: 1 });

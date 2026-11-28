@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, createPublicKey, verify } from "node:crypto";
 import { createServer } from "node:http";
 import { MongoClient } from "mongodb";
 import { EJSON } from "bson";
@@ -38,6 +38,7 @@ const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const MAX_MONTHLY_BYTES = 10 * 1024 * 1024 * 1024;
 const MAX_ACTIVE_REQUESTS = 4;
+const SIGNATURE_TTL_MS = 60_000;
 
 function json(res, status, body) {
   const payload = JSON.stringify(body);
@@ -50,11 +51,22 @@ function json(res, status, body) {
   res.end(payload);
 }
 
-function equalSecret(expected, received) {
-  if (!expected || !received) return false;
-  const a = Buffer.from(expected);
-  const b = Buffer.from(received);
-  return a.length === b.length && timingSafeEqual(a, b);
+function verifyRequest(publicKey, headers, body, seenNonces, now = Date.now()) {
+  const timestamp = headers["x-qtpatuti-timestamp"];
+  const nonce = headers["x-qtpatuti-nonce"];
+  const signature = headers["x-qtpatuti-signature"];
+  if (!publicKey || !/^\d{13}$/.test(timestamp || "") || !/^[0-9a-f-]{36}$/i.test(nonce || "") || typeof signature !== "string")
+    return false;
+  if (Math.abs(now - Number(timestamp)) > SIGNATURE_TTL_MS || seenNonces.has(nonce)) return false;
+  const digest = createHash("sha256").update(body).digest("hex");
+  const message = `${timestamp}.${nonce}.${digest}`;
+  try {
+    const valid = verify(null, Buffer.from(message), publicKey, Buffer.from(signature, "base64url"));
+    if (valid) seenNonces.set(nonce, now + SIGNATURE_TTL_MS);
+    return valid;
+  } catch {
+    return false;
+  }
 }
 
 async function readBody(req) {
@@ -85,6 +97,10 @@ function mongoTarget(database, collection, env) {
 
 export function createRelayServer({ env = process.env, Client = MongoClient } = {}) {
   const clients = new Map();
+  const seenNonces = new Map();
+  const publicKey = env.MONGODB_RELAY_PUBLIC_KEY
+    ? createPublicKey({ key: Buffer.from(env.MONGODB_RELAY_PUBLIC_KEY, "base64"), format: "der", type: "spki" })
+    : null;
   let activeRequests = 0;
   let usageQueue = Promise.resolve();
 
@@ -148,14 +164,17 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
       return json(res, 200, { ok: true });
     if (req.method !== "POST" || req.url !== "/rpc")
       return json(res, 404, { ok: false, error: "Not found." });
-    if (!equalSecret(env.MONGODB_RELAY_SECRET, req.headers.authorization?.replace(/^Bearer\s+/i, "")))
-      return json(res, 401, { ok: false, error: "Unauthorized." });
     if (activeRequests >= MAX_ACTIVE_REQUESTS)
       return json(res, 429, { ok: false, error: "Relay is at capacity." });
 
     activeRequests += 1;
     try {
       const input = await readBody(req);
+      const now = Date.now();
+      for (const [nonce, expiresAt] of seenNonces)
+        if (expiresAt <= now) seenNonces.delete(nonce);
+      if (!verifyRequest(publicKey, req.headers, input, seenNonces, now))
+        throw Object.assign(new Error("Unauthorized."), { status: 401 });
       let request;
       try {
         request = EJSON.parse(input);
@@ -197,8 +216,8 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  if (!process.env.MONGODB_RELAY_SECRET || !process.env.MONGODB_CORE_URI || !process.env.MONGODB_DATA_URI) {
-    throw new Error("MONGODB_RELAY_SECRET, MONGODB_CORE_URI, and MONGODB_DATA_URI are required.");
+  if (!process.env.MONGODB_RELAY_PUBLIC_KEY || !process.env.MONGODB_CORE_URI || !process.env.MONGODB_DATA_URI) {
+    throw new Error("MONGODB_RELAY_PUBLIC_KEY, MONGODB_CORE_URI, and MONGODB_DATA_URI are required.");
   }
   const { server } = createRelayServer();
   const port = Number(process.env.PORT || 10000);
