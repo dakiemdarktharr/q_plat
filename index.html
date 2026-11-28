@@ -485,6 +485,12 @@
         color: var(--accent);
         border-color: #594474;
       }
+      .retry-inline {
+        min-height: 32px;
+        margin-left: 10px;
+        padding: 5px 10px;
+        vertical-align: middle;
+      }
 
       .kpis {
         display: grid;
@@ -2507,6 +2513,24 @@ Compare against mean reversion.</pre>
         if (type === "ok")
           noticeTimer = setTimeout(() => (el.hidden = true), 6000);
       }
+      function connectionNotice(message) {
+        notice(message, "error");
+        if (local) {
+          const link = document.createElement("a");
+          link.className = "retry-inline button";
+          link.href = $("openProduction").href;
+          link.target = "_blank";
+          link.rel = "noopener";
+          link.textContent = "Open production";
+          $("notice").append(link);
+          return;
+        }
+        const button = document.createElement("button");
+        button.className = "retry-inline";
+        button.textContent = "Reconnect";
+        button.onclick = () => action(button, initialize);
+        $("notice").append(button);
+      }
       async function action(button, fn) {
         button.disabled = true;
         try {
@@ -2793,10 +2817,9 @@ Compare against mean reversion.</pre>
             : "Development";
         } catch (e) {
           $("dbStatus").textContent = "Atlas unavailable";
-          notice(
-            "Cloud connection unavailable. Layout remains usable. " +
-              (local ? "Open production or retry." : e.message),
-            "error",
+          connectionNotice(
+            "Cloud connection unavailable. " +
+              (local ? "Public preview remains available." : e.message),
           );
         }
         try {
@@ -2842,13 +2865,12 @@ Compare against mean reversion.</pre>
           );
           if (state.versions.length) $("notice").hidden = true;
         } catch (e) {
-          notice(
+          connectionNotice(
             "Unable to load cloud observations: " +
               e.message +
               (local
-                ? " Your browser may block file-origin requests. Use “Open this screen on production”."
+                ? " Your browser may block file-origin requests."
                 : ""),
-            "error",
           );
         }
         screen(

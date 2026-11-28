@@ -1,10 +1,10 @@
 # qtpatuti interaction redesign
 
-Research date: 2026-11-27. Scope: preserve the research engine, snapshots and private workspace history; redesign the single HTML frontend and add AI access. No paid subscriptions were started.
+Research date: 2026-11-28. Scope: preserve the research engine, snapshots and private workspace history; redesign the single HTML frontend and add AI access. No paid subscriptions were started.
 
 ## Evidence boundary
 
-The reference analysis below comes from the linked official public documentation and published descriptions. It is **not** a claim of hands-on access to every authenticated product. The browser-control channel stopped because it could not reliably identify Chrome's URL. WorldQuant BRAIN's public application returned a JavaScript shell; no private simulation screen was inspected. Portfolio123's subscription tools were not accessed. vectorbt, Qlib and NautilusTrader are libraries/frameworks, not equivalent hosted dashboards. “Frame” below means a discrete workflow state, not a measured video frame. No animation timing or inaccessible interaction is invented.
+The reference analysis combines official public documentation with the hands-on public surfaces listed below. It is **not** a claim of access to every authenticated product. WorldQuant BRAIN's public application led to its public consultant page; no private simulation screen was inspected. Portfolio123's subscription tools were not accessed. vectorbt, Qlib and NautilusTrader are libraries/frameworks, not equivalent hosted dashboards. “Frame” means an observed discrete screen/workflow state, not a recorded or timed video frame. No animation timing or inaccessible interaction is invented.
 
 | Reference | Documented state/action sequence | Applied to qtpatuti |
 |---|---|---|
@@ -17,6 +17,18 @@ The reference analysis below comes from the linked official public documentation
 | [TradingView strategies](https://www.tradingview.com/pine-script-docs/concepts/strategies/) | Add strategy to chart → inspect trade markers → open strategy results → change properties → recalculate | Price remains the primary context; signal and execution can be traced by date. No broker connection, paid plan or imitation Pine runtime is added. |
 
 These are design inferences from documented workflows, not a pixel-for-pixel copy or a universal usability ranking.
+
+## Direct public-surface observations — 2026-11-28
+
+| Surface | Observed states in order | Boundary |
+|---|---|---|
+| vectorbt portfolio docs | Documentation navigation → portfolio API article → sticky page outline → sections describing preparation, simulation, construction, analysis and selected plots | Library documentation only; no hosted research UI. |
+| WorldQuant BRAIN | Public BRAIN URL → public consultant page → top-level links → sign-in entry point | The sign-in destination is private; no authenticated alpha editor or simulation was accessed. |
+| Portfolio123 | Public home → top navigation → feature/story rows → visible idea, ranking, tuning and launch funnel → sign-up entry point | Public marketing page only; paid workspace and portfolio report not accessed. |
+| TradingView | Public chart → symbol/timeframe and chart toolbar → drawing rail/right panel → Pine Editor → default editor contents | No strategy was loaded, so a Strategy Tester report was not available in this public session. No paid action was taken. |
+| qtpatuti production | Lab screen → dataset selector waiting for catalog → empty result/chart area → catalog error banner | Atlas was not reachable before the signed relay environment was configured. The error had no in-place action although Reconnect existed under More; the banner now provides a direct recovery action. |
+
+Qlib, LEAN and NautilusTrader states in the table above were checked in official documentation, not in their authenticated or separately hosted user interfaces. The redesign therefore maps observed public flows plus documented research states; it does not claim frame-by-frame access to private products.
 
 ## Shipped interaction states to verify
 
