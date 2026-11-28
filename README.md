@@ -36,6 +36,12 @@ Keep `index.html` as the sole frontend source. Sections are marked `THEME`, `LAY
 
 Every new research action must also be available through the scoped API and MCP. Extend `lib/ai-tools.mjs` as the shared contract; keep administration and token management out of AI tools. Test the real client-to-cloud-to-web journey. The AI browser suite also checks dropdown asset → Trace synchronization and out-of-order responses using delayed genuine cloud responses in RAM.
 
+## Interface cleanup verification — 2026-11-28 (Asia/Saigon)
+
+Application revision `28ffb1011786d60ffb8fd2d04512ada8df793975`, deployment `dpl_GAoAPip7WsHGUzpc3xKznpPiNGB6`. [Release CI 46086101150](https://github.com/dakiemdarktharr/q_plat/actions/runs/46086101150) passed 23 unit tests, build, dependency audit and public-source/production/download checks. All eight AI/browser cases passed again against this deployment. HTML SHA-256: `de8b9f4d4cf8dc2ff5daf815065822c76544b56580da1f218bf058b255a11ad1`.
+
+In-memory visual review covered Lab, Data, Sources, Runs, AI, Overview, Signal, Trace, Robustness and Context. A fresh UCI robustness run displayed all five trials and three folds; the real ECB context displayed 25 joined observations with full coverage. Optional metadata disclosures and automatic success-notice dismissal worked. All five primary screens passed the 390px overflow check; no browser errors or persistent browser data were observed. The full 20-case engine journey was not repeated for this presentation-only change; its earlier evidence follows below. No paid resource or dataset import was added.
+
 ## qtpatuti redesign verification — 2026-11-27 (Asia/Saigon)
 
 November 27 application revision: `f3e8a79741415422459ada44a26daa98903eeebd`, production deployment `dpl_Ff1JR4cFzCz2ZTqJVsJbwtg4mDYs`. Public-source/production/download verification passed at 21:48:15 Asia/Saigon with the historical HTML hash below. [Release CI 46019084677](https://github.com/dakiemdarktharr/q_plat/actions/runs/46019084677) passed all 23 unit tests, build, dependency audit and release checks. The eight-case AI suite passed against this deployment at approximately 21:50, including DSL error recovery, dropdown-to-Trace refresh and deliberately reordered **real** cloud responses. No market payload files were recorded.
