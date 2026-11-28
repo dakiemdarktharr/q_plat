@@ -32,6 +32,7 @@ let atlasReadsReached = 0;
 let releaseEightAtlasReads;
 let failingUri = null;
 let failingReadUri = null;
+let failingCountUri = null;
 class FakeClient {
   constructor(uri) {
     this.uri = uri;
@@ -62,6 +63,8 @@ class FakeClient {
         },
         countDocuments: async () => {
           mongoReadCount += 1;
+          if (this.uri === failingCountUri)
+            throw Object.assign(new Error("not authorized on q_plat"), { code: 13 });
           if (blockAtlasReads) {
             atlasReadsReached++;
             if (atlasReadsReached === 8) releaseEightAtlasReads?.();
@@ -148,6 +151,31 @@ test("RPC diagnostics identify relay usage reads without exposing messages", asy
     assert.equal("Atlas unavailable" in body, false);
   } finally {
     failingReadUri = null;
+  }
+});
+
+test("RPC operation failures return collection diagnostics without crashing", async () => {
+  failingCountUri = "mongodb://core.invalid";
+  try {
+    const signed = signedRequest({
+      database: "q_plat",
+      collection: "jobs",
+      operation: "countDocuments",
+      args: [{}],
+    });
+    const response = await fetch(`${base}/rpc`, {
+      method: "POST",
+      headers: signed.headers,
+      body: signed.body,
+    });
+    assert.equal(response.status, 500);
+    const body = await response.json();
+    assert.equal(body.diagnostic.stage, "operation");
+    assert.equal(body.diagnostic.collection, "jobs");
+    assert.equal(body.diagnostic.code, "13");
+    assert.equal(body.diagnostic.kind, "authorization");
+  } finally {
+    failingCountUri = null;
   }
 });
 

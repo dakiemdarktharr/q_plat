@@ -210,6 +210,7 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
 
     activeRequests += 1;
     let stage = "usage";
+    let request;
     try {
       const input = await readBody(req);
       const now = Date.now();
@@ -217,7 +218,6 @@ export function createRelayServer({ env = process.env, Client = MongoClient } = 
         if (expiresAt <= now) seenNonces.delete(nonce);
       if (!verifyRequest(publicKey, req.headers, input, seenNonces, now))
         throw Object.assign(new Error("Unauthorized."), { status: 401 });
-      let request;
       try {
         request = EJSON.parse(input);
       } catch {
