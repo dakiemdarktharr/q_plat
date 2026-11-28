@@ -3528,22 +3528,20 @@ Compare against mean reversion.</pre>
             !state.batchLoading.has(panel.runId),
         );
         load.forEach((panel) => state.batchLoading.add(panel.runId));
-        await Promise.allSettled(
-          load.map(async (panel) => {
-            try {
-              const [report, window] = await Promise.all([
-                api("report", { run: panel.runId }),
-                api("runWindow", { run: panel.runId }),
-              ]);
-              if (state.batch?.id === batchId) {
-                state.batchDetails.set(panel.runId, { report, window });
-                if (!state.batch.code) state.batch.code = report.code;
-              }
-            } finally {
-              state.batchLoading.delete(panel.runId);
+        for (const panel of load) {
+          try {
+            const report = await api("report", { run: panel.runId });
+            const window = await api("runWindow", { run: panel.runId });
+            if (state.batch?.id === batchId) {
+              state.batchDetails.set(panel.runId, { report, window });
+              if (!state.batch.code) state.batch.code = report.code;
             }
-          }),
-        );
+          } catch (error) {
+            notice(error.message, "error");
+          } finally {
+            state.batchLoading.delete(panel.runId);
+          }
+        }
         if (state.batch?.id === batchId)
           renderBatchBoard(
             job || {
