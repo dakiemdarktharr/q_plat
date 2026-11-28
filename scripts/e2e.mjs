@@ -45,7 +45,7 @@ try {
   );
   const count = await page.locator("#dataset option").count();
   assert.ok(count >= minSnapshots);
-  assert.match(await page.locator("#dbStatus").innerText(), /connected/);
+  assert.match(await page.locator("#dbStatus").textContent(), /connected/);
   pass("01 catalog loaded from Atlas", { snapshots: count });
   await page.locator("#workspaceButton").click();
   const name = "qa_" + Date.now(),

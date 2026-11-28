@@ -82,7 +82,8 @@ try {
   await ready();
   await page.locator("#dataset").selectOption(version._id);
   await page.locator("#code").fill(code);
-  await page.locator("#testSettings summary").click();
+  await page.locator("#testSettings > summary").click();
+  await page.getByText("Execution, risk & universe", { exact: true }).click();
   for (const [key, value] of Object.entries(config))
     await page.locator("#" + key).fill(String(value));
   await page.locator("#robustness").check();
@@ -227,7 +228,7 @@ try {
   console.log("BENCHMARK", JSON.stringify({ baselineMs: 63117, measurements }));
 } finally {
   await client?.close();
-  if (credential?.id) await api("revoke", { id: credential.id });
+  if (credential?.id) await api("tokens", { revoke: credential.id });
   await context.close();
   await browser.close();
 }

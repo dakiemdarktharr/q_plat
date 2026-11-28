@@ -4091,7 +4091,15 @@ Compare against mean reversion.</pre>
             const id = state.activeJob;
             await api("cancel", {}, { id });
             const job = (await api("jobs", { id })).jobs[0];
-            if (state.activeJob === id && job) renderJobProgress(job);
+            if (state.activeJob === id && job) {
+              renderJobProgress(job);
+              if (job.status === "cancelled") {
+                state.activeJob = null;
+                state.jobGeneration++;
+                $("jobStatus").textContent = "Job cancelled";
+                setRunning(false);
+              }
+            }
           }
         },
         resetZoom: () => {
