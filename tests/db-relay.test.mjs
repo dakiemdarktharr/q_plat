@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { createHash, generateKeyPairSync, verify } from "node:crypto";
 import { EJSON } from "bson";
-import { db } from "../lib/db.mjs";
+import { bulkUpsert, db } from "../lib/db.mjs";
 
 const keys = generateKeyPairSync("ed25519");
 const privateKey = keys.privateKey.export({ format: "der", type: "pkcs8" }).toString("base64");
@@ -68,4 +68,17 @@ test("database relay routes the health ping to Atlas", async () => {
   assert.equal(captured.request.operation, "ping");
   assert.equal(captured.request.collection, "workspaces");
   assert.throws(() => database.command({ dropDatabase: 1 }));
+});
+
+test("bulk writes use bounded configurable batches", async () => {
+  const sizes = [];
+  await bulkUpsert(
+    {
+      bulkWrite: async (operations) => sizes.push(operations.length),
+    },
+    Array.from({ length: 4500 }, (_, id) => ({ id, value: id })),
+    ["id"],
+    2000,
+  );
+  assert.deepEqual(sizes, [2000, 2000, 500]);
 });

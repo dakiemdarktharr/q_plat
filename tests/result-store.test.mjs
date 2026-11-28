@@ -165,5 +165,13 @@ test("progress reserves 100 for committed jobs and freezes elapsed time on compl
     }).percent,
     75,
   );
+  assert.equal(
+    jobProgress({
+      type: "import",
+      status: "running",
+      progress: { checkpoint: 8400, total: 9047 },
+    }).percent,
+    null,
+  );
   assert.equal(jobProgress({ status: "running" }).percent, null);
 });
